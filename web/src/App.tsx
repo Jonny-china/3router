@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Routes, Route, Navigate, useLocation, useNavigate } from "react-router-dom";
 import { Layout, Menu, Button, theme } from "antd";
 import {
   CloudUploadOutlined,
@@ -15,15 +16,14 @@ import "./App.css";
 
 const { Sider, Content } = Layout;
 
-type Page = "upstreams" | "rules";
-
 const MENU_ITEMS = [
-  { key: "upstreams", icon: <CloudUploadOutlined />, label: "上游服务" },
-  { key: "rules", icon: <BranchesOutlined />, label: "路由规则" },
+  { key: "/upstreams", icon: <CloudUploadOutlined />, label: "上游服务" },
+  { key: "/rules", icon: <BranchesOutlined />, label: "路由规则" },
 ];
 
 export default function App() {
-  const [page, setPage] = useState<Page>("upstreams");
+  const location = useLocation();
+  const navigate = useNavigate();
   const [collapsed, setCollapsed] = useState(false);
   const { isDark, toggle } = useTheme();
   const { token } = theme.useToken();
@@ -71,9 +71,9 @@ export default function App() {
 
         <Menu
           mode="inline"
-          selectedKeys={[page]}
+          selectedKeys={[location.pathname]}
           items={MENU_ITEMS}
-          onClick={({ key }) => setPage(key as Page)}
+          onClick={({ key }) => navigate(key)}
           theme={isDark ? "dark" : "light"}
           style={{ border: "none", marginTop: 8 }}
         />
@@ -113,8 +113,11 @@ export default function App() {
             background: token.colorBgLayout,
           }}
         >
-          {page === "upstreams" && <Upstreams />}
-          {page === "rules" && <Rules />}
+          <Routes>
+            <Route path="/upstreams" element={<Upstreams />} />
+            <Route path="/rules" element={<Rules />} />
+            <Route path="*" element={<Navigate to="/upstreams" replace />} />
+          </Routes>
         </Content>
       </Layout>
     </Layout>
