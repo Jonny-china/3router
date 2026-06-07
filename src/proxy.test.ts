@@ -3,8 +3,10 @@ import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
+import { hashImageBlock, storeImageSummary, clearCache } from "./image-cache";
+import { transformMessagesForTextModel } from "./transform";
 import { buildUpstreamRequest } from "./proxy";
-import type { Upstream } from "./types";
+import type { Message, ContentBlock, Upstream } from "./types";
 
 const upstream: Upstream = {
   id: "up-1",
@@ -197,5 +199,53 @@ describe("buildProxyHandler", () => {
     expect(res.status).toBe(502);
     const body = await res.json();
     expect(body.error.message).toContain("没有匹配的路由规则");
+  });
+});
+
+describe("proxy integration: message transform for text-only models", () => {
+  beforeEach(() => {
+    clearCache();
+  });
+
+  it("strips image blocks from history when routing to text-only model", async () => {
+    const imageBlock: ContentBlock = {
+      type: "image",
+      source: { type: "base64", data: "integration-test-data" },
+    };
+    const hash = await hashImageBlock(imageBlock);
+    storeImageSummary([hash], "图中显示了一个登录表单");
+
+    const messages: Message[] = [
+      {
+        role: "user",
+        content: [imageBlock, { type: "text", text: "看看这个截图" }],
+      },
+      { role: "assistant", content: "我看到了一个登录表单" },
+      { role: "user", content: "帮我写一个登录组件" },
+    ];
+
+    const transformed = await transformMessagesForTextModel(messages);
+
+    expect(transformed[0].content).toEqual([
+      { type: "text", text: "[图片描述: 图中显示了一个登录表单]" },
+      { type: "text", text: "看看这个截图" },
+    ]);
+    expect(transformed[1].content).toBe("我看到了一个登录表单");
+    expect(transformed[2].content).toBe("帮我写一个登录组件");
+  });
+
+  it("uses [image] placeholder when cache is empty", async () => {
+    const messages: Message[] = [
+      {
+        role: "user",
+        content: [
+          { type: "image", source: { type: "base64", data: "no-cache" } },
+        ],
+      },
+      { role: "user", content: "继续" },
+    ];
+
+    const transformed = await transformMessagesForTextModel(messages);
+    expect(transformed[0].content).toEqual([{ type: "text", text: "[image]" }]);
   });
 });
