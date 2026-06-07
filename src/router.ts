@@ -22,5 +22,10 @@ export function matchRule(
   const upstream = upstreams.find((u) => u.id === matchedRule.upstreamId);
   if (!upstream) return undefined;
 
-  return { upstream, model: matchedRule.model, ruleName: matchedRule.name };
+  return {
+    upstream,
+    model: matchedRule.model,
+    ruleName: matchedRule.name,
+    supportsImages: matchedRule.supportsImages ?? false,
+  };
 }

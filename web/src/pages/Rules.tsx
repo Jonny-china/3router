@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { PlusOutlined, EditOutlined, DeleteOutlined } from "@ant-design/icons";
 import {
   Table,
   Button,
@@ -11,13 +11,10 @@ import {
   Tag,
   App,
   Typography,
+  Switch,
 } from "antd";
-import {
-  PlusOutlined,
-  EditOutlined,
-  DeleteOutlined,
-} from "@ant-design/icons";
 import type { ColumnsType } from "antd/es/table";
+import { useState, useEffect, useCallback } from "react";
 
 import type { Rule, Upstream, Config, RuleCondition } from "../../../src/types";
 import { api } from "../api";
@@ -30,6 +27,7 @@ interface FormValues {
   upstreamId: string;
   model: string;
   priority: number;
+  supportsImages: boolean;
 }
 
 const EMPTY_FORM: FormValues = {
@@ -38,6 +36,7 @@ const EMPTY_FORM: FormValues = {
   upstreamId: "",
   model: "",
   priority: 100,
+  supportsImages: false,
 };
 
 function conditionTag(condition: RuleCondition) {
@@ -97,6 +96,7 @@ export default function Rules() {
       upstreamId: rule.upstreamId,
       model: rule.model,
       priority: rule.priority,
+      supportsImages: rule.supportsImages ?? false,
     });
     setModalOpen(true);
   }
@@ -173,6 +173,13 @@ export default function Rules() {
       defaultSortOrder: "ascend" as const,
     },
     {
+      title: "图片支持",
+      dataIndex: "supportsImages",
+      key: "supportsImages",
+      render: (val: boolean | undefined) =>
+        val ? <Tag color="blue">支持</Tag> : <Tag>不支持</Tag>,
+    },
+    {
       title: "操作",
       key: "actions",
       align: "right" as const,
@@ -244,19 +251,11 @@ export default function Rules() {
           initialValues={EMPTY_FORM}
           style={{ marginTop: 16 }}
         >
-          <Form.Item
-            name="name"
-            label="名称"
-            rules={[{ required: true, message: "请输入名称" }]}
-          >
+          <Form.Item name="name" label="名称" rules={[{ required: true, message: "请输入名称" }]}>
             <Input placeholder="例如 图片消息" />
           </Form.Item>
 
-          <Form.Item
-            name="condition"
-            label="条件"
-            rules={[{ required: true }]}
-          >
+          <Form.Item name="condition" label="条件" rules={[{ required: true }]}>
             <Select
               options={[
                 { value: "default", label: "默认" },
@@ -291,6 +290,15 @@ export default function Rules() {
             tooltip="数字越小优先级越高"
           >
             <InputNumber min={0} style={{ width: "100%" }} />
+          </Form.Item>
+
+          <Form.Item
+            name="supportsImages"
+            label="支持图片"
+            valuePropName="checked"
+            tooltip="启用后，图片内容将直接传递给模型；关闭时，历史中的图片会被替换为文字描述"
+          >
+            <Switch />
           </Form.Item>
         </Form>
       </Modal>
