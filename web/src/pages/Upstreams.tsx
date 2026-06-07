@@ -23,6 +23,7 @@ export default function Upstreams() {
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<FormData>(EMPTY_FORM);
+  const [showKeyInput, setShowKeyInput] = useState(false);
 
   const loadConfig = useCallback(async () => {
     try {
@@ -43,6 +44,7 @@ export default function Upstreams() {
   function openAddForm() {
     setEditingId(null);
     setForm(EMPTY_FORM);
+    setShowKeyInput(true);
     setShowForm(true);
   }
 
@@ -53,6 +55,7 @@ export default function Upstreams() {
       baseUrl: upstream.baseUrl,
       apiKey: upstream.apiKey,
     });
+    setShowKeyInput(false);
     setShowForm(true);
   }
 
@@ -60,6 +63,7 @@ export default function Upstreams() {
     setShowForm(false);
     setEditingId(null);
     setForm(EMPTY_FORM);
+    setShowKeyInput(false);
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -68,7 +72,10 @@ export default function Upstreams() {
 
     try {
       if (editingId) {
-        await api.updateUpstream(editingId, form);
+        const updateData = showKeyInput
+          ? form
+          : { name: form.name, baseUrl: form.baseUrl };
+        await api.updateUpstream(editingId, updateData);
       } else {
         await api.createUpstream(form);
       }
@@ -173,15 +180,33 @@ export default function Upstreams() {
               </div>
               <div className="form-field">
                 <label htmlFor="up-key">API Key</label>
-                <input
-                  id="up-key"
-                  type="text"
-                  className="mono"
-                  value={form.apiKey}
-                  onChange={(e) => setForm({ ...form, apiKey: e.target.value })}
-                  placeholder="sk-ant-xxx"
-                  required
-                />
+                {editingId && !showKeyInput ? (
+                  <div>
+                    <span className="masked-key">{maskApiKey(form.apiKey)}</span>
+                    <button
+                      type="button"
+                      className="btn btn-ghost btn-sm"
+                      style={{ marginLeft: 10 }}
+                      onClick={() => {
+                        setForm({ ...form, apiKey: "" });
+                        setShowKeyInput(true);
+                      }}
+                    >
+                      Change
+                    </button>
+                  </div>
+                ) : (
+                  <input
+                    id="up-key"
+                    type="password"
+                    className="mono"
+                    value={form.apiKey}
+                    onChange={(e) => setForm({ ...form, apiKey: e.target.value })}
+                    placeholder="sk-ant-xxx"
+                    required
+                    autoComplete="off"
+                  />
+                )}
               </div>
               <div className="form-actions">
                 <button type="button" className="btn btn-ghost" onClick={closeForm}>
