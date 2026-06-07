@@ -4,8 +4,8 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { hashImageBlock, storeImageSummary, clearCache } from "./image-cache";
-import { transformMessagesForTextModel } from "./transform";
 import { buildUpstreamRequest } from "./proxy";
+import { transformMessagesForTextModel } from "./transform";
 import type { Message, ContentBlock, Upstream } from "./types";
 
 const upstream: Upstream = {
@@ -26,7 +26,14 @@ describe("buildUpstreamRequest", () => {
       messages: [{ role: "user" as const, content: "hi" }],
     };
 
-    const result = buildUpstreamRequest("POST", "/v1/messages", headers, body, upstream, "claude-opus-4-6");
+    const result = buildUpstreamRequest(
+      "POST",
+      "/v1/messages",
+      headers,
+      body,
+      upstream,
+      "claude-opus-4-6",
+    );
 
     expect(result.method).toBe("POST");
     expect(result.url).toBe("https://api.test.com/v1/messages");
@@ -89,7 +96,14 @@ describe("buildUpstreamRequest", () => {
       system: "You are helpful.",
     };
 
-    const result = buildUpstreamRequest("POST", "/v1/messages", new Headers(), body, upstream, "new-model");
+    const result = buildUpstreamRequest(
+      "POST",
+      "/v1/messages",
+      new Headers(),
+      body,
+      upstream,
+      "new-model",
+    );
 
     const resultBody = await result.json();
     expect(resultBody.model).toBe("new-model");
@@ -128,7 +142,14 @@ describe("buildUpstreamRequest", () => {
   it("does not replace model when model is null", async () => {
     const body = { model: "original-model", messages: [] };
 
-    const result = buildUpstreamRequest("POST", "/v1/messages", new Headers(), body, upstream, null);
+    const result = buildUpstreamRequest(
+      "POST",
+      "/v1/messages",
+      new Headers(),
+      body,
+      upstream,
+      null,
+    );
 
     const resultBody = await result.json();
     expect(resultBody.model).toBe("original-model");
@@ -238,9 +259,7 @@ describe("proxy integration: message transform for text-only models", () => {
     const messages: Message[] = [
       {
         role: "user",
-        content: [
-          { type: "image", source: { type: "base64", data: "no-cache" } },
-        ],
+        content: [{ type: "image", source: { type: "base64", data: "no-cache" } }],
       },
       { role: "user", content: "继续" },
     ];

@@ -1,5 +1,5 @@
-import type { Message, ContentBlock } from "./types";
 import { hashImageBlock, getImageSummary } from "./image-cache";
+import type { Message, ContentBlock } from "./types";
 
 /**
  * Replace image blocks in messages with cached text descriptions.
@@ -9,9 +9,7 @@ import { hashImageBlock, getImageSummary } from "./image-cache";
  *   - Cache hit → { type: "text", text: "[图片描述: <cached text>]" }
  *   - Cache miss → { type: "text", text: "[image]" }
  */
-export async function transformMessagesForTextModel(
-  messages: Message[],
-): Promise<Message[]> {
+export async function transformMessagesForTextModel(messages: Message[]): Promise<Message[]> {
   const result: Message[] = [];
 
   for (const msg of messages) {

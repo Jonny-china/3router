@@ -175,10 +175,7 @@ export function buildProxyHandler(): (req: Request) => Promise<Response> {
       const match = matchRule(messages, cfg.rules, cfg.upstreams);
 
       if (!match) {
-        return Response.json(
-          { error: { message: "没有匹配的路由规则" } },
-          { status: 502 },
-        );
+        return Response.json({ error: { message: "没有匹配的路由规则" } }, { status: 502 });
       }
 
       // Transform messages for models that don't support images
@@ -197,9 +194,7 @@ export function buildProxyHandler(): (req: Request) => Promise<Response> {
       );
 
       // Pre-compute image hashes for caching (before fetch to avoid delaying response)
-      const imageHashes = (hasBody && match.supportsImages)
-        ? await extractImageHashes(messages)
-        : [];
+      const imageHashes = hasBody && match.supportsImages ? await extractImageHashes(messages) : [];
 
       const upstreamRes = await fetch(upstreamReq);
       const duration = Date.now() - startTime;

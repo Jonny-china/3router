@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach } from "bun:test";
 
-import { transformMessagesForTextModel } from "./transform";
 import { storeImageSummary, clearCache, hashImageBlock } from "./image-cache";
+import { transformMessagesForTextModel } from "./transform";
 import type { Message, ContentBlock } from "./types";
 
 describe("transformMessagesForTextModel", () => {
@@ -33,10 +33,7 @@ describe("transformMessagesForTextModel", () => {
     const messages: Message[] = [
       {
         role: "user",
-        content: [
-          imageBlock,
-          { type: "text", text: "看看这段代码" },
-        ],
+        content: [imageBlock, { type: "text", text: "看看这段代码" }],
       },
     ];
     const result = await transformMessagesForTextModel(messages);

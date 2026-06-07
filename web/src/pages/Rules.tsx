@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { PlusOutlined, EditOutlined, DeleteOutlined } from "@ant-design/icons";
 import {
   Table,
   Button,
@@ -13,12 +13,8 @@ import {
   Typography,
   Switch,
 } from "antd";
-import {
-  PlusOutlined,
-  EditOutlined,
-  DeleteOutlined,
-} from "@ant-design/icons";
 import type { ColumnsType } from "antd/es/table";
+import { useState, useEffect, useCallback } from "react";
 
 import type { Rule, Upstream, Config, RuleCondition } from "../../../src/types";
 import { api } from "../api";
@@ -255,19 +251,11 @@ export default function Rules() {
           initialValues={EMPTY_FORM}
           style={{ marginTop: 16 }}
         >
-          <Form.Item
-            name="name"
-            label="名称"
-            rules={[{ required: true, message: "请输入名称" }]}
-          >
+          <Form.Item name="name" label="名称" rules={[{ required: true, message: "请输入名称" }]}>
             <Input placeholder="例如 图片消息" />
           </Form.Item>
 
-          <Form.Item
-            name="condition"
-            label="条件"
-            rules={[{ required: true }]}
-          >
+          <Form.Item name="condition" label="条件" rules={[{ required: true }]}>
             <Select
               options={[
                 { value: "default", label: "默认" },
