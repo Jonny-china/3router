@@ -1,4 +1,5 @@
 import { describe, it, expect } from "bun:test";
+
 import { matchRule } from "./router";
 import type { Upstream, Rule, Message } from "./types";
 
@@ -55,9 +56,7 @@ describe("matchRule", () => {
   });
 
   it("matches default rule when user message has string content", () => {
-    const messages: Message[] = [
-      { role: "user", content: "Hello" },
-    ];
+    const messages: Message[] = [{ role: "user", content: "Hello" }];
     const result = matchRule(messages, rules, upstreams);
     expect(result?.model).toBe("claude-sonnet-4-6");
     expect(result?.upstream.id).toBe("up-2");
@@ -67,9 +66,7 @@ describe("matchRule", () => {
     const messages: Message[] = [
       {
         role: "user",
-        content: [
-          { type: "image", source: { type: "base64", data: "abc" } },
-        ],
+        content: [{ type: "image", source: { type: "base64", data: "abc" } }],
       },
       { role: "assistant", content: "I see an image." },
     ];
@@ -97,9 +94,7 @@ describe("matchRule", () => {
         priority: 1,
       },
     ];
-    const messages: Message[] = [
-      { role: "user", content: "test" },
-    ];
+    const messages: Message[] = [{ role: "user", content: "test" }];
     const result = matchRule(messages, priorityRules, upstreams);
     expect(result?.model).toBe("model-high");
     expect(result?.upstream.id).toBe("up-1");
@@ -116,9 +111,7 @@ describe("matchRule", () => {
         priority: 1,
       },
     ];
-    const messages: Message[] = [
-      { role: "user", content: "text only" },
-    ];
+    const messages: Message[] = [{ role: "user", content: "text only" }];
     const result = matchRule(messages, emptyRules, upstreams);
     expect(result).toBeUndefined();
   });
@@ -134,9 +127,7 @@ describe("matchRule", () => {
         priority: 1,
       },
     ];
-    const messages: Message[] = [
-      { role: "user", content: "test" },
-    ];
+    const messages: Message[] = [{ role: "user", content: "test" }];
     const result = matchRule(messages, badRules, upstreams);
     expect(result).toBeUndefined();
   });
@@ -150,9 +141,7 @@ describe("matchRule", () => {
       { role: "assistant", content: "response" },
       {
         role: "user",
-        content: [
-          { type: "image", source: { type: "base64", data: "xyz" } },
-        ],
+        content: [{ type: "image", source: { type: "base64", data: "xyz" } }],
       },
     ];
     const result = matchRule(messages, rules, upstreams);

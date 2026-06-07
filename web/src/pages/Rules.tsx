@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
-import { api } from "../api";
+
 import type { Rule, Upstream, Config, RuleCondition } from "../../../src/types";
+import { api } from "../api";
 
 interface FormData {
   name: string;
@@ -39,7 +40,7 @@ export default function Rules() {
   const loadConfig = useCallback(async () => {
     try {
       const config: Config = await api.getConfig();
-      setRules([...config.rules].sort((a, b) => a.priority - b.priority));
+      setRules(config.rules.toSorted((a, b) => a.priority - b.priority));
       setUpstreams(config.upstreams);
       setError(null);
     } catch (err) {
@@ -113,7 +114,11 @@ export default function Rules() {
   }
 
   if (loading) {
-    return <div className="empty-state"><p>Loading…</p></div>;
+    return (
+      <div className="empty-state">
+        <p>Loading…</p>
+      </div>
+    );
   }
 
   return (
@@ -145,22 +150,18 @@ export default function Rules() {
                 </div>
               </div>
               <div className="card-actions">
-                <button
-                  className="btn btn-ghost btn-sm"
-                  onClick={() => openEditForm(rule)}
-                >
+                <button className="btn btn-ghost btn-sm" onClick={() => openEditForm(rule)}>
                   Edit
                 </button>
-                <button
-                  className="btn btn-danger btn-sm"
-                  onClick={() => handleDelete(rule.id)}
-                >
+                <button className="btn btn-danger btn-sm" onClick={() => handleDelete(rule.id)}>
                   Delete
                 </button>
               </div>
             </div>
             <div className="card-meta">
-              <span className={`badge ${rule.condition === "default" ? "badge-accent" : "badge-warning"}`}>
+              <span
+                className={`badge ${rule.condition === "default" ? "badge-accent" : "badge-warning"}`}
+              >
                 {conditionLabel(rule.condition)}
               </span>
               <span>Priority: {rule.priority}</span>
@@ -190,9 +191,7 @@ export default function Rules() {
                 <select
                   id="rule-condition"
                   value={form.condition}
-                  onChange={(e) =>
-                    setForm({ ...form, condition: e.target.value as RuleCondition })
-                  }
+                  onChange={(e) => setForm({ ...form, condition: e.target.value as RuleCondition })}
                 >
                   <option value="default">Default</option>
                   <option value="has_image">Has Image</option>
@@ -203,9 +202,7 @@ export default function Rules() {
                 <select
                   id="rule-upstream"
                   value={form.upstreamId}
-                  onChange={(e) =>
-                    setForm({ ...form, upstreamId: e.target.value })
-                  }
+                  onChange={(e) => setForm({ ...form, upstreamId: e.target.value })}
                 >
                   {upstreams.map((u) => (
                     <option key={u.id} value={u.id}>
@@ -231,9 +228,7 @@ export default function Rules() {
                   id="rule-priority"
                   type="number"
                   value={form.priority}
-                  onChange={(e) =>
-                    setForm({ ...form, priority: Number(e.target.value) })
-                  }
+                  onChange={(e) => setForm({ ...form, priority: Number(e.target.value) })}
                   min={0}
                   required
                 />

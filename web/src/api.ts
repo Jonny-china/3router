@@ -49,6 +49,5 @@ export const api = {
       body: JSON.stringify(data),
     }),
 
-  deleteRule: (id: string) =>
-    request<{ success: boolean }>(`/rules/${id}`, { method: "DELETE" }),
+  deleteRule: (id: string) => request<{ success: boolean }>(`/rules/${id}`, { method: "DELETE" }),
 };

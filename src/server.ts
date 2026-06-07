@@ -1,8 +1,9 @@
-import { readConfig, initConfig, validateConfig } from "./config";
-import { buildProxyHandler } from "./proxy";
-import { handleApiRoute } from "./api";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
+
+import { handleApiRoute } from "./api";
+import { readConfig, initConfig, validateConfig } from "./config";
+import { buildProxyHandler } from "./proxy";
 
 // Initialize config from example if missing
 if (initConfig()) {

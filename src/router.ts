@@ -5,7 +5,7 @@ export function matchRule(
   rules: Rule[],
   upstreams: Upstream[],
 ): RouteMatch | undefined {
-  const sorted = [...rules].sort((a, b) => a.priority - b.priority);
+  const sorted = rules.toSorted((a, b) => a.priority - b.priority);
   const lastMessage = messages[messages.length - 1];
 
   let hasImage = false;

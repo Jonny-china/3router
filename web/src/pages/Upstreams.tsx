@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
-import { api } from "../api";
+
 import type { Upstream, Config } from "../../../src/types";
+import { api } from "../api";
 
 interface FormData {
   name: string;
@@ -91,7 +92,11 @@ export default function Upstreams() {
   }
 
   if (loading) {
-    return <div className="empty-state"><p>Loading…</p></div>;
+    return (
+      <div className="empty-state">
+        <p>Loading…</p>
+      </div>
+    );
   }
 
   return (
@@ -121,22 +126,18 @@ export default function Upstreams() {
                 <div className="card-subtitle">{upstream.baseUrl}</div>
               </div>
               <div className="card-actions">
-                <button
-                  className="btn btn-ghost btn-sm"
-                  onClick={() => openEditForm(upstream)}
-                >
+                <button className="btn btn-ghost btn-sm" onClick={() => openEditForm(upstream)}>
                   Edit
                 </button>
-                <button
-                  className="btn btn-danger btn-sm"
-                  onClick={() => handleDelete(upstream.id)}
-                >
+                <button className="btn btn-danger btn-sm" onClick={() => handleDelete(upstream.id)}>
                   Delete
                 </button>
               </div>
             </div>
             <div className="card-meta">
-              <span>Key: <span className="masked-key">{maskApiKey(upstream.apiKey)}</span></span>
+              <span>
+                Key: <span className="masked-key">{maskApiKey(upstream.apiKey)}</span>
+              </span>
               <span>ID: {upstream.id}</span>
             </div>
           </div>

@@ -5,6 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "bun run --watch src/server.ts",
+    "build": "cd web && pnpm build",
+    "start": "bun run src/server.ts",
     "test": "bun test",
     "lint": "oxlint src/ web/src/",
     "format": "oxfmt src/ web/src/",

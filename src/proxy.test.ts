@@ -1,7 +1,8 @@
 import { describe, it, expect, beforeEach, afterEach } from "bun:test";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
 import { tmpdir } from "node:os";
+import { join } from "node:path";
+
 import { buildUpstreamRequest } from "./proxy";
 import type { Upstream } from "./types";
 
@@ -23,13 +24,7 @@ describe("buildUpstreamRequest", () => {
       messages: [{ role: "user" as const, content: "hi" }],
     };
 
-    const result = buildUpstreamRequest(
-      "/v1/messages",
-      headers,
-      body,
-      upstream,
-      "claude-opus-4-6",
-    );
+    const result = buildUpstreamRequest("/v1/messages", headers, body, upstream, "claude-opus-4-6");
 
     expect(result.url).toBe("https://api.test.com/v1/messages");
     expect(result.headers.get("Authorization")).toBe("Bearer sk-test-123");
@@ -86,13 +81,7 @@ describe("buildUpstreamRequest", () => {
       system: "You are helpful.",
     };
 
-    const result = buildUpstreamRequest(
-      "/v1/messages",
-      new Headers(),
-      body,
-      upstream,
-      "new-model",
-    );
+    const result = buildUpstreamRequest("/v1/messages", new Headers(), body, upstream, "new-model");
 
     const resultBody = await result.json();
     expect(resultBody.model).toBe("new-model");
@@ -137,9 +126,7 @@ describe("buildProxyHandler", () => {
   it("returns 502 when no rule matches", async () => {
     const config = {
       port: 9191,
-      upstreams: [
-        { id: "up-1", name: "T", baseUrl: "https://api.test.com", apiKey: "k" },
-      ],
+      upstreams: [{ id: "up-1", name: "T", baseUrl: "https://api.test.com", apiKey: "k" }],
       rules: [
         {
           id: "r-1",

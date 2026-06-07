@@ -1,5 +1,5 @@
 import { readConfig, saveConfig } from "./config";
-import type { Config, Upstream, Rule, RuleCondition } from "./types";
+import type { Config, Upstream, Rule } from "./types";
 
 const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
@@ -151,9 +151,7 @@ export async function handleApiRoute(req: Request): Promise<Response> {
       if (!rule) return errorResponse("Rule not found", 404);
 
       if (rule.condition === "default") {
-        const defaultCount = config.rules.filter(
-          (r) => r.condition === "default",
-        ).length;
+        const defaultCount = config.rules.filter((r) => r.condition === "default").length;
         if (defaultCount <= 1) {
           return errorResponse(
             "Cannot delete the last default rule — at least one default rule is required",

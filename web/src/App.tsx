@@ -1,6 +1,8 @@
 import { useState } from "react";
-import Upstreams from "./pages/Upstreams";
+
 import Rules from "./pages/Rules";
+import Upstreams from "./pages/Upstreams";
+
 import "./App.css";
 
 type Page = "upstreams" | "rules";

@@ -79,10 +79,7 @@ export function buildProxyHandler(): (req: Request) => Promise<Response> {
     } catch (err) {
       const message = err instanceof Error ? err.message : "Unknown proxy error";
       console.error(`[proxy error] ${message}`);
-      return Response.json(
-        { error: { message: `Proxy error: ${message}` } },
-        { status: 502 },
-      );
+      return Response.json({ error: { message: `Proxy error: ${message}` } }, { status: 502 });
     }
   };
 }
