@@ -193,7 +193,7 @@ export async function handleApiRoute(req: Request): Promise<Response> {
     return errorResponse("接口不存在", req, 404);
   } catch (err) {
     const message = err instanceof Error ? err.message : "内部服务错误";
-    console.error(`[api error] ${message}`);
+    console.error(`[接口错误] ${message}`);
     return errorResponse(message, req, 500);
   }
 }

@@ -196,6 +196,6 @@ describe("buildProxyHandler", () => {
     const res = await handler(req);
     expect(res.status).toBe(502);
     const body = await res.json();
-    expect(body.error.message).toContain("No matching rule");
+    expect(body.error.message).toContain("没有匹配的路由规则");
   });
 });

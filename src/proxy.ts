@@ -71,7 +71,7 @@ export function buildProxyHandler(): (req: Request) => Promise<Response> {
 
       if (!match) {
         return Response.json(
-          { error: { message: "No matching rule found for this request" } },
+          { error: { message: "没有匹配的路由规则" } },
           { status: 502 },
         );
       }
@@ -103,9 +103,9 @@ export function buildProxyHandler(): (req: Request) => Promise<Response> {
         headers: responseHeaders,
       });
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Unknown proxy error";
-      console.error(`[proxy error] ${message}`);
-      return Response.json({ error: { message: `Proxy error: ${message}` } }, { status: 502 });
+      const message = err instanceof Error ? err.message : "未知代理错误";
+      console.error(`[代理错误] ${message}`);
+      return Response.json({ error: { message: `代理错误：${message}` } }, { status: 502 });
     }
   };
 }

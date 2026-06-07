@@ -7,7 +7,7 @@ import { buildProxyHandler } from "./proxy";
 
 // Initialize config from example if missing
 if (initConfig()) {
-  console.log("📝 Created config.json from config.example.json — edit it with your API keys.");
+  console.log("📝 已从 config.example.json 创建 config.json — 请填入你的 API Key。");
 }
 
 // Load and validate config at startup
@@ -39,7 +39,7 @@ const server = Bun.serve({
       const filePath = resolve(WEB_DIST, requestedPath);
       // Prevent path traversal: ensure resolved path is within WEB_DIST
       if (!filePath.startsWith(WEB_DIST + "/")) {
-        return new Response("Forbidden", { status: 403 });
+        return new Response("禁止访问", { status: 403 });
       }
       const file = Bun.file(filePath);
       if (await file.exists()) {
@@ -58,4 +58,4 @@ const server = Bun.serve({
 });
 
 console.log(`🚀 3router listening on http://localhost:${server.port}`);
-console.log(`   ${config.upstreams.length} upstream(s), ${config.rules.length} rule(s)`);
+console.log(`   ${config.upstreams.length} 个上游服务，${config.rules.length} 条规则`);

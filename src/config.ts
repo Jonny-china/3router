@@ -18,20 +18,20 @@ export function readConfig(): Config {
 
 export function validateConfig(config: Config): void {
   if (!config.upstreams || config.upstreams.length === 0) {
-    throw new Error("Config must have at least one upstream");
+    throw new Error("配置中至少需要一个上游服务");
   }
 
   const upstreamIds = new Set(config.upstreams.map((u) => u.id));
 
   for (const rule of config.rules) {
     if (!upstreamIds.has(rule.upstreamId)) {
-      throw new Error(`Rule "${rule.name}" references nonexistent upstream "${rule.upstreamId}"`);
+      throw new Error(`规则「${rule.name}」引用了不存在的上游服务「${rule.upstreamId}」`);
     }
   }
 
   const hasDefault = config.rules.some((r) => r.condition === "default");
   if (!hasDefault) {
-    throw new Error("Config must have at least one rule with condition 'default'");
+    throw new Error("配置中至少需要一条 condition 为 'default' 的规则");
   }
 }
 
