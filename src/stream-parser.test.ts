@@ -1,4 +1,5 @@
 import { describe, it, expect } from "bun:test";
+
 import { extractTextFromSSE, extractTextFromJsonResponse } from "./stream-parser";
 
 describe("extractTextFromSSE", () => {
@@ -12,7 +13,8 @@ describe("extractTextFromSSE", () => {
   });
 
   it("handles data: without trailing space", () => {
-    const sse = 'data:{"type":"content_block_delta","delta":{"type":"text_delta","text":"no-space"}}';
+    const sse =
+      'data:{"type":"content_block_delta","delta":{"type":"text_delta","text":"no-space"}}';
     expect(extractTextFromSSE(sse)).toBe("no-space");
   });
 

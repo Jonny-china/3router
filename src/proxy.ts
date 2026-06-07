@@ -120,7 +120,6 @@ function captureStreamForCache(
     });
 }
 
-
 /**
  * Creates the proxy handler function.
  * Each call to the handler re-reads config so changes take effect immediately.
