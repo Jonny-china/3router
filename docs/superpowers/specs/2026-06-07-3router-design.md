@@ -266,3 +266,28 @@ Key dependencies:
 - `react`, `react-dom`
 - `vite`, `@vitejs/plugin-react`
 - `typescript`
+
+## 11. Code Quality Tooling
+
+Use **oxlint** (linter) and **oxfmt** (formatter) from the oxc project as the project's code quality toolchain. Both must be installed at latest version.
+
+| Tool | Version (min) | Purpose |
+|------|---------------|---------|
+| `oxlint` | latest | Linting (replaces ESLint) |
+| `oxfmt` | latest | Formatting (replaces Prettier) |
+
+### Setup
+
+- Install as dev dependencies: `pnpm add -D oxlint oxfmt`
+- Add scripts to root `package.json`:
+  ```json
+  {
+    "scripts": {
+      "lint": "oxlint src/ web/src/",
+      "format": "oxfmt src/ web/src/",
+      "format:check": "oxfmt --check src/ web/src/"
+    }
+  }
+  ```
+- Create `oxlintrc.json` and `oxfmt.toml` (or equivalent config) at project root
+- Web frontend (`web/`) uses the same tooling — no separate ESLint/Prettier setup
