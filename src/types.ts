@@ -48,4 +48,5 @@ export interface ProxyRequest {
 export interface RouteMatch {
   upstream: Upstream;
   model: string;
+  ruleName: string;
 }

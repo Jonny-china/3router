@@ -3,6 +3,7 @@ import { join, resolve } from "node:path";
 
 import { handleApiRoute } from "./api";
 import { readConfig, initConfig, validateConfig } from "./config";
+import { logRequest } from "./logger";
 import { buildProxyHandler } from "./proxy";
 
 // Initialize config from example if missing
@@ -84,13 +85,16 @@ const server = Bun.serve({
 
   async fetch(req: Request): Promise<Response> {
     const url = new URL(req.url);
+    const startTime = Date.now();
 
     // REST API for config management
     if (url.pathname.startsWith("/api/")) {
-      return handleApiRoute(req);
+      const res = await handleApiRoute(req);
+      logRequest({ method: req.method, path: url.pathname, status: res.status, durationMs: Date.now() - startTime, requestHeaders: req.headers });
+      return res;
     }
 
-    // Proxy forwarding for API calls
+    // Proxy forwarding for API calls (logs internally)
     if (url.pathname.startsWith("/v1/")) {
       return proxyHandler(req);
     }
@@ -105,17 +109,23 @@ const server = Bun.serve({
       }
       const file = Bun.file(filePath);
       if (await file.exists()) {
-        return new Response(file);
+        const res = new Response(file);
+        logRequest({ method: req.method, path: url.pathname, status: res.status, durationMs: Date.now() - startTime });
+        return res;
       }
       // SPA fallback: serve index.html for any unmatched route
       const indexFile = Bun.file(join(WEB_DIST, "index.html"));
       if (await indexFile.exists()) {
-        return new Response(indexFile);
+        const res = new Response(indexFile);
+        logRequest({ method: req.method, path: url.pathname, status: res.status, durationMs: Date.now() - startTime });
+        return res;
       }
     }
 
     // Development: redirect to Vite dev server
-    return Response.redirect(`https://localhost:5173${url.pathname}`, 302);
+    const res = Response.redirect(`https://localhost:5173${url.pathname}`, 302);
+    logRequest({ method: req.method, path: url.pathname, status: res.status, durationMs: Date.now() - startTime });
+    return res;
   },
 });
 

@@ -35,6 +35,7 @@ web/.vite/
 Thumbs.db
 
 # Logs
+logs/
 *.log
 
 # Test coverage

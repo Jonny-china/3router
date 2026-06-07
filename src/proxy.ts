@@ -1,4 +1,5 @@
 import * as config from "./config";
+import { logRequest } from "./logger";
 import { matchRule } from "./router";
 import type { Message, Upstream } from "./types";
 
@@ -22,7 +23,7 @@ export function buildUpstreamRequest(
   const headers = new Headers();
   originalHeaders.forEach((value, key) => {
     const lower = key.toLowerCase();
-    if (lower !== "authorization" && lower !== "x-api-key") {
+    if (lower !== "authorization" && lower !== "x-api-key" && lower !== "host") {
       headers.set(key, value);
     }
   });
@@ -53,13 +54,13 @@ export function buildUpstreamRequest(
 export function buildProxyHandler(): (req: Request) => Promise<Response> {
   return async (req: Request): Promise<Response> => {
     const startTime = Date.now();
+    let body: Record<string, unknown> | null = null;
 
     try {
       const cfg = config.readConfig();
       const url = new URL(req.url);
       const BODY_METHODS = ["POST", "PUT", "PATCH"];
       const hasBody = BODY_METHODS.includes(req.method);
-      let body: Record<string, unknown> | null = null;
       let messages: Message[] = [];
 
       if (hasBody) {
@@ -88,9 +89,18 @@ export function buildProxyHandler(): (req: Request) => Promise<Response> {
       const upstreamRes = await fetch(upstreamReq);
       const duration = Date.now() - startTime;
 
-      console.log(
-        `[${new Date().toISOString()}] [${match.model}] [${match.upstream.name}] [${upstreamRes.status}] ${duration}ms`,
-      );
+      logRequest({
+        method: req.method,
+        path: url.pathname,
+        status: upstreamRes.status,
+        durationMs: duration,
+        rule: match.ruleName,
+        upstream: match.upstream.name,
+        model: match.model,
+        requestHeaders: req.headers,
+        requestBody: body,
+        responseHeaders: upstreamRes.headers,
+      });
 
       // Full transparency: pass through status, headers, and streaming body
       // Bun's fetch transparently decompresses gzip, so remove encoding/length
@@ -104,7 +114,18 @@ export function buildProxyHandler(): (req: Request) => Promise<Response> {
       });
     } catch (err) {
       const message = err instanceof Error ? err.message : "未知代理错误";
-      console.error(`[代理错误] ${message}`);
+      const duration = Date.now() - startTime;
+
+      logRequest({
+        method: req.method,
+        path: new URL(req.url).pathname,
+        status: 502,
+        durationMs: duration,
+        error: message,
+        requestHeaders: req.headers,
+        requestBody: body,
+      });
+
       return Response.json({ error: { message: `代理错误：${message}` } }, { status: 502 });
     }
   };
