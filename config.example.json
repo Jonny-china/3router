@@ -1,0 +1,29 @@
+{
+  "port": 9191,
+  "upstreams": [
+    {
+      "id": "anthropic-default",
+      "name": "Anthropic Official",
+      "baseUrl": "https://api.anthropic.com",
+      "apiKey": "sk-ant-xxx"
+    }
+  ],
+  "rules": [
+    {
+      "id": "image-rule",
+      "name": "Image Messages",
+      "condition": "has_image",
+      "upstreamId": "anthropic-default",
+      "model": "claude-opus-4-6",
+      "priority": 1
+    },
+    {
+      "id": "default-rule",
+      "name": "Default",
+      "condition": "default",
+      "upstreamId": "anthropic-default",
+      "model": "claude-sonnet-4-6",
+      "priority": 999
+    }
+  ]
+}

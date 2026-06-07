@@ -33,3 +33,9 @@ Thumbs.db
 
 # Logs
 *.log
+
+# Test coverage
+coverage/
+
+# Bun
+bun.lockb
