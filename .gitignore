@@ -1,6 +1,9 @@
 # Runtime config (contains API keys)
 config.json
 
+# Self-signed TLS certificates (auto-generated)
+certs/
+
 # Dependencies
 node_modules/
 
