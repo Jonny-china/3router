@@ -55,8 +55,9 @@ export function buildProxyHandler(): (req: Request) => Promise<Response> {
         );
       }
 
+      const reqUrl = new URL(req.url);
       const upstreamReq = buildUpstreamRequest(
-        new URL(req.url).pathname,
+        reqUrl.pathname + reqUrl.search,
         req.headers,
         body,
         match.upstream,
@@ -71,7 +72,11 @@ export function buildProxyHandler(): (req: Request) => Promise<Response> {
       );
 
       // Full transparency: pass through status, headers, and streaming body
+      // Bun's fetch transparently decompresses gzip, so remove encoding/length
+      // headers to avoid clients trying to decompress already-decoded bodies.
       const responseHeaders = new Headers(upstreamRes.headers);
+      responseHeaders.delete("content-encoding");
+      responseHeaders.delete("content-length");
       return new Response(upstreamRes.body, {
         status: upstreamRes.status,
         headers: responseHeaders,
