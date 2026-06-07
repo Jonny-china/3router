@@ -1,5 +1,5 @@
 import { existsSync } from "node:fs";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 
 import { handleApiRoute } from "./api";
 import { readConfig, initConfig, validateConfig } from "./config";
@@ -35,7 +35,12 @@ const server = Bun.serve({
 
     // Static files from web/dist (production mode)
     if (existsSync(WEB_DIST)) {
-      const filePath = join(WEB_DIST, url.pathname === "/" ? "index.html" : url.pathname);
+      const requestedPath = url.pathname === "/" ? "index.html" : url.pathname;
+      const filePath = resolve(WEB_DIST, requestedPath);
+      // Prevent path traversal: ensure resolved path is within WEB_DIST
+      if (!filePath.startsWith(WEB_DIST)) {
+        return new Response("Forbidden", { status: 403 });
+      }
       const file = Bun.file(filePath);
       if (await file.exists()) {
         return new Response(file);
