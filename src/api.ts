@@ -1,5 +1,5 @@
-import { readConfig, saveConfig } from "./config";
-import type { Config, Upstream, Rule } from "./types";
+import { readConfig, updateConfig } from "./config";
+import type { Upstream, Rule } from "./types";
 
 const ALLOWED_ORIGINS = [
   "http://localhost:5173",
@@ -63,13 +63,11 @@ export async function handleApiRoute(req: Request): Promise<Response> {
       if (!body.name || !body.baseUrl || !body.apiKey) {
         return errorResponse("Missing required fields: name, baseUrl, apiKey", req);
       }
-      const config = readConfig();
       const upstream: Upstream = { ...body, id: generateId() };
-      const newConfig: Config = {
+      await updateConfig((config) => ({
         ...config,
         upstreams: [...config.upstreams, upstream],
-      };
-      saveConfig(newConfig);
+      }));
       return jsonResponse(upstream, req, 201);
     }
 
@@ -78,40 +76,46 @@ export async function handleApiRoute(req: Request): Promise<Response> {
       const id = extractId(req.url, "/api/upstreams");
       if (!id) return errorResponse("Missing upstream ID", req);
       const body = (await req.json()) as Partial<Upstream>;
-      const config = readConfig();
-      const index = config.upstreams.findIndex((u) => u.id === id);
-      if (index === -1) return errorResponse("Upstream not found", req, 404);
-
-      const updated: Upstream = { ...config.upstreams[index], ...body, id };
-      const newConfig: Config = {
-        ...config,
-        upstreams: config.upstreams.map((u) => (u.id === id ? updated : u)),
-      };
-      saveConfig(newConfig);
-      return jsonResponse(updated, req);
+      let updated: Upstream | undefined;
+      try {
+        await updateConfig((config) => {
+          const index = config.upstreams.findIndex((u) => u.id === id);
+          if (index === -1) throw new Error("NOT_FOUND");
+          updated = { ...config.upstreams[index], ...body, id };
+          return { ...config, upstreams: config.upstreams.map((u) => (u.id === id ? updated! : u)) };
+        });
+      } catch (err) {
+        if (err instanceof Error && err.message === "NOT_FOUND") {
+          return errorResponse("Upstream not found", req, 404);
+        }
+        throw err;
+      }
+      return jsonResponse(updated!, req);
     }
 
     // DELETE /api/upstreams/:id — delete
     if (path.startsWith("/api/upstreams/") && req.method === "DELETE") {
       const id = extractId(req.url, "/api/upstreams");
       if (!id) return errorResponse("Missing upstream ID", req);
-      const config = readConfig();
-      const upstream = config.upstreams.find((u) => u.id === id);
-      if (!upstream) return errorResponse("Upstream not found", req, 404);
-
-      const associatedRules = config.rules.filter((r) => r.upstreamId === id);
-      if (associatedRules.length > 0) {
-        return errorResponse(
-          `Cannot delete: ${associatedRules.length} rule(s) reference this upstream`,
-          req,
-        );
+      try {
+        await updateConfig((config) => {
+          const upstream = config.upstreams.find((u) => u.id === id);
+          if (!upstream) throw new Error("UPSTREAM_NOT_FOUND");
+          const associatedRules = config.rules.filter((r) => r.upstreamId === id);
+          if (associatedRules.length > 0) {
+            throw new Error(`REFERENCED_BY_RULES:${associatedRules.length}`);
+          }
+          return { ...config, upstreams: config.upstreams.filter((u) => u.id !== id) };
+        });
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : "";
+        if (msg === "UPSTREAM_NOT_FOUND") return errorResponse("Upstream not found", req, 404);
+        if (msg.startsWith("REFERENCED_BY_RULES:")) {
+          const count = msg.split(":")[1];
+          return errorResponse(`Cannot delete: ${count} rule(s) reference this upstream`, req);
+        }
+        throw err;
       }
-
-      const newConfig: Config = {
-        ...config,
-        upstreams: config.upstreams.filter((u) => u.id !== id),
-      };
-      saveConfig(newConfig);
       return jsonResponse({ success: true }, req);
     }
 
@@ -126,13 +130,11 @@ export async function handleApiRoute(req: Request): Promise<Response> {
       if (body.priority === undefined || body.priority === null) {
         return errorResponse("Missing required field: priority", req);
       }
-      const config = readConfig();
       const rule: Rule = { ...body, id: generateId() };
-      const newConfig: Config = {
+      await updateConfig((config) => ({
         ...config,
         rules: [...config.rules, rule],
-      };
-      saveConfig(newConfig);
+      }));
       return jsonResponse(rule, req, 201);
     }
 
@@ -141,42 +143,50 @@ export async function handleApiRoute(req: Request): Promise<Response> {
       const id = extractId(req.url, "/api/rules");
       if (!id) return errorResponse("Missing rule ID", req);
       const body = (await req.json()) as Partial<Rule>;
-      const config = readConfig();
-      const index = config.rules.findIndex((r) => r.id === id);
-      if (index === -1) return errorResponse("Rule not found", req, 404);
-
-      const updated: Rule = { ...config.rules[index], ...body, id };
-      const newConfig: Config = {
-        ...config,
-        rules: config.rules.map((r) => (r.id === id ? updated : r)),
-      };
-      saveConfig(newConfig);
-      return jsonResponse(updated, req);
+      let updated: Rule | undefined;
+      try {
+        await updateConfig((config) => {
+          const index = config.rules.findIndex((r) => r.id === id);
+          if (index === -1) throw new Error("NOT_FOUND");
+          updated = { ...config.rules[index], ...body, id };
+          return { ...config, rules: config.rules.map((r) => (r.id === id ? updated! : r)) };
+        });
+      } catch (err) {
+        if (err instanceof Error && err.message === "NOT_FOUND") {
+          return errorResponse("Rule not found", req, 404);
+        }
+        throw err;
+      }
+      return jsonResponse(updated!, req);
     }
 
     // DELETE /api/rules/:id — delete (must keep at least one default rule)
     if (path.startsWith("/api/rules/") && req.method === "DELETE") {
       const id = extractId(req.url, "/api/rules");
       if (!id) return errorResponse("Missing rule ID", req);
-      const config = readConfig();
-      const rule = config.rules.find((r) => r.id === id);
-      if (!rule) return errorResponse("Rule not found", req, 404);
-
-      if (rule.condition === "default") {
-        const defaultCount = config.rules.filter((r) => r.condition === "default").length;
-        if (defaultCount <= 1) {
+      try {
+        await updateConfig((config) => {
+          const rule = config.rules.find((r) => r.id === id);
+          if (!rule) throw new Error("RULE_NOT_FOUND");
+          if (rule.condition === "default") {
+            const defaultCount = config.rules.filter((r) => r.condition === "default").length;
+            if (defaultCount <= 1) {
+              throw new Error("LAST_DEFAULT_RULE");
+            }
+          }
+          return { ...config, rules: config.rules.filter((r) => r.id !== id) };
+        });
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : "";
+        if (msg === "RULE_NOT_FOUND") return errorResponse("Rule not found", req, 404);
+        if (msg === "LAST_DEFAULT_RULE") {
           return errorResponse(
             "Cannot delete the last default rule — at least one default rule is required",
             req,
           );
         }
+        throw err;
       }
-
-      const newConfig: Config = {
-        ...config,
-        rules: config.rules.filter((r) => r.id !== id),
-      };
-      saveConfig(newConfig);
       return jsonResponse({ success: true }, req);
     }
 
