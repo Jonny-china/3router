@@ -16,7 +16,8 @@
       "condition": "has_image",
       "upstreamId": "anthropic-default",
       "model": "claude-opus-4-6",
-      "priority": 1
+      "priority": 1,
+      "supportsImages": true
     },
     {
       "id": "default-rule",
@@ -24,7 +25,8 @@
       "condition": "default",
       "upstreamId": "anthropic-default",
       "model": "claude-sonnet-4-6",
-      "priority": 999
+      "priority": 999,
+      "supportsImages": false
     }
   ]
 }

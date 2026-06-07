@@ -11,6 +11,7 @@ import {
   Tag,
   App,
   Typography,
+  Switch,
 } from "antd";
 import {
   PlusOutlined,
@@ -30,6 +31,7 @@ interface FormValues {
   upstreamId: string;
   model: string;
   priority: number;
+  supportsImages: boolean;
 }
 
 const EMPTY_FORM: FormValues = {
@@ -38,6 +40,7 @@ const EMPTY_FORM: FormValues = {
   upstreamId: "",
   model: "",
   priority: 100,
+  supportsImages: false,
 };
 
 function conditionTag(condition: RuleCondition) {
@@ -97,6 +100,7 @@ export default function Rules() {
       upstreamId: rule.upstreamId,
       model: rule.model,
       priority: rule.priority,
+      supportsImages: rule.supportsImages ?? false,
     });
     setModalOpen(true);
   }
@@ -171,6 +175,13 @@ export default function Rules() {
       key: "priority",
       sorter: (a, b) => a.priority - b.priority,
       defaultSortOrder: "ascend" as const,
+    },
+    {
+      title: "图片支持",
+      dataIndex: "supportsImages",
+      key: "supportsImages",
+      render: (val: boolean | undefined) =>
+        val ? <Tag color="blue">支持</Tag> : <Tag>不支持</Tag>,
     },
     {
       title: "操作",
@@ -291,6 +302,15 @@ export default function Rules() {
             tooltip="数字越小优先级越高"
           >
             <InputNumber min={0} style={{ width: "100%" }} />
+          </Form.Item>
+
+          <Form.Item
+            name="supportsImages"
+            label="支持图片"
+            valuePropName="checked"
+            tooltip="启用后，图片内容将直接传递给模型；关闭时，历史中的图片会被替换为文字描述"
+          >
+            <Switch />
           </Form.Item>
         </Form>
       </Modal>
