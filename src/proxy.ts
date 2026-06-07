@@ -78,48 +78,44 @@ function captureStreamForCache(
   imageHashes: string[],
   isStreaming: boolean,
 ): void {
-  if (isStreaming) {
-    let accumulated = "";
-    stream
-      .pipeThrough(new TextDecoderStream())
-      .pipeTo(
-        new WritableStream<string>({
-          write(chunk) {
-            accumulated += chunk;
-          },
-          close() {
-            const extracted = extractTextFromSSE(accumulated);
-            if (extracted && imageHashes.length > 0) {
-              storeImageSummary(imageHashes, extracted);
-            }
-          },
-        }),
-      )
-      .catch(() => {});
-  } else {
-    let accumulated = "";
-    stream
-      .pipeThrough(new TextDecoderStream())
-      .pipeTo(
-        new WritableStream<string>({
-          write(chunk) {
-            accumulated += chunk;
-          },
-          close() {
-            try {
-              const json = JSON.parse(accumulated);
-              const extracted = extractTextFromJsonResponse(json);
-              if (extracted && imageHashes.length > 0) {
-                storeImageSummary(imageHashes, extracted);
-              }
-            } catch {
-              // Not valid JSON, skip caching
-            }
-          },
-        }),
-      )
-      .catch(() => {});
-  }
+  const MAX_CACHE_BYTES = 512 * 1024;
+  const controller = new AbortController();
+
+  const processText = isStreaming
+    ? extractTextFromSSE
+    : (text: string) => {
+        try {
+          return extractTextFromJsonResponse(JSON.parse(text));
+        } catch {
+          return "";
+        }
+      };
+
+  let accumulated = "";
+  let bytesReceived = 0;
+
+  stream
+    .pipeThrough(new TextDecoderStream())
+    .pipeTo(
+      new WritableStream<string>({
+        write(chunk) {
+          bytesReceived += chunk.length;
+          if (bytesReceived > MAX_CACHE_BYTES) {
+            controller.abort();
+            return;
+          }
+          accumulated += chunk;
+        },
+        close() {
+          const extracted = processText(accumulated);
+          if (extracted && imageHashes.length > 0) {
+            storeImageSummary(imageHashes, extracted);
+          }
+        },
+      }),
+      { signal: controller.signal },
+    )
+    .catch(() => {});
 }
 
 /**
@@ -200,6 +196,11 @@ export function buildProxyHandler(): (req: Request) => Promise<Response> {
         hasBody ? match.model : null,
       );
 
+      // Pre-compute image hashes for caching (before fetch to avoid delaying response)
+      const imageHashes = (hasBody && match.supportsImages)
+        ? await extractImageHashes(messages)
+        : [];
+
       const upstreamRes = await fetch(upstreamReq);
       const duration = Date.now() - startTime;
 
@@ -224,18 +225,15 @@ export function buildProxyHandler(): (req: Request) => Promise<Response> {
       responseHeaders.delete("content-length");
 
       // Capture response text for caching when the model supports images
-      if (hasBody && match.supportsImages && upstreamRes.body) {
-        const imageHashes = await extractImageHashes(messages);
-        if (imageHashes.length > 0) {
-          const [clientStream, cacheStream] = upstreamRes.body.tee();
-          const isStreaming =
-            responseHeaders.get("content-type")?.includes("text/event-stream") ?? false;
-          captureStreamForCache(cacheStream, imageHashes, isStreaming);
-          return new Response(clientStream, {
-            status: upstreamRes.status,
-            headers: responseHeaders,
-          });
-        }
+      if (imageHashes.length > 0 && upstreamRes.body) {
+        const [clientStream, cacheStream] = upstreamRes.body.tee();
+        const isStreaming =
+          responseHeaders.get("content-type")?.includes("text/event-stream") ?? false;
+        captureStreamForCache(cacheStream, imageHashes, isStreaming);
+        return new Response(clientStream, {
+          status: upstreamRes.status,
+          headers: responseHeaders,
+        });
       }
 
       return new Response(upstreamRes.body, {
