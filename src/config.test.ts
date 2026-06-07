@@ -110,9 +110,10 @@ describe("validateConfig", () => {
 
 describe("saveConfig", () => {
   it("writes config to config.json", async () => {
+    writeConfigFile(validConfig);
     const { saveConfig, readConfig } = await import("./config");
     const config = { ...validConfig, port: 8080 };
-    saveConfig(config);
+    await saveConfig(config);
     const loaded = readConfig();
     expect(loaded.port).toBe(8080);
     expect(loaded.upstreams).toHaveLength(1);

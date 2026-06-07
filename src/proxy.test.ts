@@ -24,10 +24,12 @@ describe("buildUpstreamRequest", () => {
       messages: [{ role: "user" as const, content: "hi" }],
     };
 
-    const result = buildUpstreamRequest("/v1/messages", headers, body, upstream, "claude-opus-4-6");
+    const result = buildUpstreamRequest("POST", "/v1/messages", headers, body, upstream, "claude-opus-4-6");
 
+    expect(result.method).toBe("POST");
     expect(result.url).toBe("https://api.test.com/v1/messages");
     expect(result.headers.get("Authorization")).toBe("Bearer sk-test-123");
+    expect(result.headers.get("x-api-key")).toBeNull();
     expect(result.headers.get("content-type")).toBe("application/json");
     const resultBody = await result.json();
     expect(resultBody.model).toBe("claude-opus-4-6");
@@ -41,6 +43,7 @@ describe("buildUpstreamRequest", () => {
     };
 
     const result = buildUpstreamRequest(
+      "POST",
       "/v1/messages",
       new Headers(),
       { model: "x" },
@@ -51,15 +54,17 @@ describe("buildUpstreamRequest", () => {
     expect(result.url).toBe("https://api.test.com/v1/messages");
   });
 
-  it("preserves all original headers except Authorization", () => {
+  it("preserves original headers except authorization and x-api-key", () => {
     const headers = new Headers({
       "content-type": "application/json",
       "anthropic-version": "2023-06-01",
       "x-custom-header": "custom-value",
       authorization: "Bearer original",
+      "x-api-key": "original-key",
     });
 
     const result = buildUpstreamRequest(
+      "POST",
       "/v1/messages",
       headers,
       { model: "x" },
@@ -70,6 +75,7 @@ describe("buildUpstreamRequest", () => {
     expect(result.headers.get("anthropic-version")).toBe("2023-06-01");
     expect(result.headers.get("x-custom-header")).toBe("custom-value");
     expect(result.headers.get("Authorization")).toBe("Bearer sk-test-123");
+    expect(result.headers.get("x-api-key")).toBeNull();
   });
 
   it("preserves all body fields besides model", async () => {
@@ -81,13 +87,49 @@ describe("buildUpstreamRequest", () => {
       system: "You are helpful.",
     };
 
-    const result = buildUpstreamRequest("/v1/messages", new Headers(), body, upstream, "new-model");
+    const result = buildUpstreamRequest("POST", "/v1/messages", new Headers(), body, upstream, "new-model");
 
     const resultBody = await result.json();
     expect(resultBody.model).toBe("new-model");
     expect(resultBody.max_tokens).toBe(4096);
     expect(resultBody.stream).toBe(true);
     expect(resultBody.system).toBe("You are helpful.");
+  });
+
+  it("forwards GET requests without a body", () => {
+    const result = buildUpstreamRequest("GET", "/v1/models", new Headers(), null, upstream, null);
+
+    expect(result.method).toBe("GET");
+    expect(result.url).toBe("https://api.test.com/v1/models");
+    expect(result.headers.get("Authorization")).toBe("Bearer sk-test-123");
+  });
+
+  it("uses x-api-key auth scheme when configured", () => {
+    const anthropicUpstream: Upstream = {
+      ...upstream,
+      authScheme: "x-api-key",
+    };
+
+    const result = buildUpstreamRequest(
+      "POST",
+      "/v1/messages",
+      new Headers(),
+      { model: "x" },
+      anthropicUpstream,
+      "claude-opus-4-6",
+    );
+
+    expect(result.headers.get("x-api-key")).toBe("sk-test-123");
+    expect(result.headers.get("Authorization")).toBeNull();
+  });
+
+  it("does not replace model when model is null", async () => {
+    const body = { model: "original-model", messages: [] };
+
+    const result = buildUpstreamRequest("POST", "/v1/messages", new Headers(), body, upstream, null);
+
+    const resultBody = await result.json();
+    expect(resultBody.model).toBe("original-model");
   });
 });
 

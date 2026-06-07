@@ -1,4 +1,4 @@
-import { readFileSync, writeFileSync, existsSync, copyFileSync } from "node:fs";
+import { readFileSync, writeFileSync, renameSync, existsSync, copyFileSync, rmSync } from "node:fs";
 import { join } from "node:path";
 
 import type { Config } from "./types";
@@ -35,8 +35,39 @@ export function validateConfig(config: Config): void {
   }
 }
 
-export function saveConfig(config: Config): void {
-  writeFileSync(getConfigPath(), JSON.stringify(config, null, 2) + "\n");
+// Module-level write lock to serialize concurrent config mutations
+let writeLock: Promise<void> = Promise.resolve();
+
+export async function updateConfig(
+  transform: (config: Config) => Config,
+): Promise<Config> {
+  const previousLock = writeLock;
+  let releaseLock: () => void;
+  writeLock = new Promise<void>((resolve) => {
+    releaseLock = resolve;
+  });
+
+  await previousLock;
+  try {
+    const config = readConfig();
+    const newConfig = transform(config);
+    validateConfig(newConfig);
+    const configPath = getConfigPath();
+    const tmpPath = configPath + ".tmp";
+    writeFileSync(tmpPath, JSON.stringify(newConfig, null, 2) + "\n");
+    renameSync(tmpPath, configPath);
+    return newConfig;
+  } catch (err) {
+    // Clean up temp file on failure
+    try { rmSync(getConfigPath() + ".tmp", { force: true }); } catch { /* best effort */ }
+    throw err;
+  } finally {
+    releaseLock!();
+  }
+}
+
+export async function saveConfig(config: Config): Promise<void> {
+  await updateConfig(() => config);
 }
 
 export function initConfig(): boolean {

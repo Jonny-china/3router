@@ -5,7 +5,8 @@
       "id": "anthropic-default",
       "name": "Anthropic Official",
       "baseUrl": "https://api.anthropic.com",
-      "apiKey": "sk-ant-xxx"
+      "apiKey": "sk-ant-xxx",
+      "authScheme": "x-api-key"
     }
   ],
   "rules": [

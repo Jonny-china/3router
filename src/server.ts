@@ -38,7 +38,7 @@ const server = Bun.serve({
       const requestedPath = url.pathname === "/" ? "index.html" : url.pathname;
       const filePath = resolve(WEB_DIST, requestedPath);
       // Prevent path traversal: ensure resolved path is within WEB_DIST
-      if (!filePath.startsWith(WEB_DIST)) {
+      if (!filePath.startsWith(WEB_DIST + "/")) {
         return new Response("Forbidden", { status: 403 });
       }
       const file = Bun.file(filePath);
