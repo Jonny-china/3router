@@ -38,6 +38,7 @@
 | HTTP Server | `Bun.serve()` (native, no framework) |
 | Frontend | React + Vite |
 | Config Storage | Local JSON file (`config.json`) |
+| Package Manager | pnpm |
 
 ### Directory Structure
 
@@ -251,7 +252,14 @@ DELETE /api/rules/:id       → Delete rule
 
 ## 10. Dependencies
 
-All dependencies must be installed at their **latest versions**. Code must be written against the latest API of each dependency. Before installation, verify latest version via `npm info <pkg> version` or context7 docs.
+**Package Manager**: Use **pnpm** for all dependency management. Do not use npm or yarn.
+
+All dependencies must be installed at their **latest versions**. Code must be written against the latest API of each dependency. Before installation, verify latest version via `pnpm info <pkg> version` or context7 docs.
+
+Installation commands:
+- `pnpm add <package>` — add production dependency
+- `pnpm add -D <package>` — add dev dependency
+- `pnpm install` — install all dependencies from lockfile
 
 Key dependencies:
 - `bun-types` (dev)
