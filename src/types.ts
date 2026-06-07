@@ -15,6 +15,7 @@ export interface Rule {
   upstreamId: string;
   model: string;
   priority: number; // Lower number = higher priority
+  supportsImages?: boolean;
 }
 
 export interface Config {
@@ -49,4 +50,5 @@ export interface RouteMatch {
   upstream: Upstream;
   model: string;
   ruleName: string;
+  supportsImages: boolean;
 }

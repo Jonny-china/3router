@@ -147,4 +147,49 @@ describe("matchRule", () => {
     const result = matchRule(messages, rules, upstreams);
     expect(result?.model).toBe("claude-opus-4-6");
   });
+
+  it("returns supportsImages: true when the matched rule declares it", () => {
+    const imgRules: Rule[] = [
+      {
+        id: "img",
+        name: "Image",
+        condition: "has_image",
+        upstreamId: "up-1",
+        model: "vision-model",
+        priority: 1,
+        supportsImages: true,
+      },
+    ];
+    const messages: Message[] = [
+      {
+        role: "user",
+        content: [{ type: "image", source: { type: "base64", data: "abc" } }],
+      },
+    ];
+    const result = matchRule(messages, imgRules, upstreams);
+    expect(result?.supportsImages).toBe(true);
+  });
+
+  it("returns supportsImages: false when the matched rule declares false", () => {
+    const textRules: Rule[] = [
+      {
+        id: "def",
+        name: "Default",
+        condition: "default",
+        upstreamId: "up-2",
+        model: "text-model",
+        priority: 1,
+        supportsImages: false,
+      },
+    ];
+    const messages: Message[] = [{ role: "user", content: "hello" }];
+    const result = matchRule(messages, textRules, upstreams);
+    expect(result?.supportsImages).toBe(false);
+  });
+
+  it("defaults supportsImages to false when the rule omits the field", () => {
+    const messages: Message[] = [{ role: "user", content: "hello" }];
+    const result = matchRule(messages, rules, upstreams);
+    expect(result?.supportsImages).toBe(false);
+  });
 });
