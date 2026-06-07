@@ -1,0 +1,35 @@
+# Runtime config (contains API keys)
+config.json
+
+# Dependencies
+node_modules/
+
+# Build output
+web/dist/
+
+# TypeScript
+*.tsbuildinfo
+
+# Environment
+.env
+.env.*
+!.env.example
+
+# Claude Code worktrees
+.claude/worktree/
+
+# Vite
+web/.vite/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log

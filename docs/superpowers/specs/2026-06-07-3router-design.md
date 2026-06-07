@@ -60,9 +60,12 @@
 │   │   └── api.ts         # fetch wrappers
 │   ├── index.html
 │   ├── vite.config.ts
+│   ├── oxlint.config.ts   # Nested lint config (extends root + React rules)
 │   └── package.json
 ├── config.json            # Runtime config (gitignored)
 ├── config.example.json    # Example config
+├── oxlint.config.ts       # Root lint config (baseline for all TS/JS)
+├── oxfmt.config.ts        # Root format config
 ├── package.json
 ├── tsconfig.json
 └── README.md
@@ -289,5 +292,83 @@ Use **oxlint** (linter) and **oxfmt** (formatter) from the oxc project as the pr
     }
   }
   ```
-- Create `oxlintrc.json` and `oxfmt.toml` (or equivalent config) at project root
-- Web frontend (`web/`) uses the same tooling — no separate ESLint/Prettier setup
+
+### Configuration File Format
+
+Both tools use TypeScript config files (`.config.ts`) with `defineConfig` for type safety. Config files are discovered automatically by walking up the directory tree from each source file — no `-c` / `--config` flags needed.
+
+- **oxlint**: `oxlint.config.ts` (see [Nested Config](https://oxc.rs/docs/guide/usage/linter/nested-config.html))
+- **oxfmt**: `oxfmt.config.ts`
+
+### Root Config — `oxlint.config.ts`
+
+Baseline config for all TypeScript/JavaScript in the project. Enables default plugins (`eslint`, `typescript`, `unicorn`, `oxc`) plus `correctness` category:
+
+```ts
+import { defineConfig } from "oxlint";
+
+export default defineConfig({
+  categories: {
+    correctness: "error",
+    suspicious: "warn",
+  },
+  plugins: ["eslint", "typescript", "unicorn", "oxc"],
+  rules: {
+    "no-console": "warn",
+    "no-debugger": "error",
+  },
+});
+```
+
+### Nested Config — `web/oxlint.config.ts`
+
+The `web/` directory contains React/TSX code that needs React-specific lint rules (`react`, `react-hooks`, `jsx-a11y`). Oxlint supports [nested configs](https://oxc.rs/docs/guide/usage/linter/nested-config.html): when linting a file, it uses the **nearest** `oxlint.config.ts` in the directory tree. Nested configs are **not** auto-merged — use `extends` to inherit from the parent:
+
+```ts
+import baseConfig from "../oxlint.config.ts";
+import { defineConfig } from "oxlint";
+
+export default defineConfig({
+  extends: [baseConfig],
+  plugins: ["eslint", "typescript", "unicorn", "oxc", "react", "jsx-a11y"],
+  rules: {
+    "react/jsx-key": "error",
+    "react/jsx-no-target-blank": "error",
+    "react-hooks/rules-of-hooks": "error",
+    "react-hooks/exhaustive-deps": "warn",
+    "jsx-a11y/alt-text": "error",
+  },
+  settings: {
+    react: {
+      linkComponents: [{ name: "Link", linkAttribute: "to" }],
+    },
+  },
+});
+```
+
+> **Note**: Setting `plugins` **overwrites** the default plugin set, so the nested config must re-list all desired plugins (including the defaults like `eslint`, `typescript`, `unicorn`, `oxc`).
+
+### Format Config — `oxfmt.config.ts`
+
+Single root config applies to the entire project:
+
+```ts
+import { defineConfig } from "oxfmt";
+
+export default defineConfig({
+  printWidth: 100,
+  semi: true,
+  singleQuote: false,
+  trailingComma: "all",
+  sortImports: {},
+});
+```
+
+If the `web/` frontend needs different formatting (e.g. wider lines for JSX), add a `web/oxfmt.config.ts` with overrides — the same nested-config mechanism applies.
+
+### Key Behaviors
+
+- **Nearest config wins**: each file is governed by exactly one config — the closest `oxlint.config.ts` / `oxfmt.config.ts` in its ancestor directories.
+- **No auto-merge**: child configs do not inherit from parents unless `extends` is used explicitly.
+- **`--config` disables nesting**: passing `-c` / `--config` on the CLI turns off nested config discovery entirely. Avoid this in scripts.
+- Web frontend (`web/`) has its own oxlint config but shares the root `oxfmt.config.ts` — no separate ESLint/Prettier setup.
