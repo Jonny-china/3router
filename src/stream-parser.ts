@@ -6,7 +6,7 @@ export function extractTextFromSSE(sseText: string): string {
   let text = "";
   for (const line of lines) {
     if (!line.startsWith("data:")) continue;
-    const data = line.slice(5).trimStart().trim();
+    const data = line.slice(5).trim();
     if (data === "[DONE]") continue;
     try {
       const event = JSON.parse(data);

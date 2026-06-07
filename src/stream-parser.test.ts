@@ -34,6 +34,10 @@ describe("extractTextFromSSE", () => {
 
     expect(extractTextFromSSE(sse)).toBe("ok");
   });
+
+  it("returns empty string for empty input", () => {
+    expect(extractTextFromSSE("")).toBe("");
+  });
 });
 
 describe("extractTextFromJsonResponse", () => {
@@ -60,5 +64,9 @@ describe("extractTextFromJsonResponse", () => {
   it("returns empty string for non-array content", () => {
     const json = { content: "plain string" };
     expect(extractTextFromJsonResponse(json)).toBe("");
+  });
+
+  it("returns empty string for empty content array", () => {
+    expect(extractTextFromJsonResponse({ content: [] })).toBe("");
   });
 });
