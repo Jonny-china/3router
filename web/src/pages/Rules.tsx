@@ -1,10 +1,30 @@
 import { useState, useEffect, useCallback } from "react";
-import { Modal } from "antd";
+import {
+  Table,
+  Button,
+  Modal,
+  Form,
+  Input,
+  InputNumber,
+  Select,
+  Space,
+  Tag,
+  App,
+  Typography,
+} from "antd";
+import {
+  PlusOutlined,
+  EditOutlined,
+  DeleteOutlined,
+} from "@ant-design/icons";
+import type { ColumnsType } from "antd/es/table";
 
 import type { Rule, Upstream, Config, RuleCondition } from "../../../src/types";
 import { api } from "../api";
 
-interface FormData {
+const { Text } = Typography;
+
+interface FormValues {
   name: string;
   condition: RuleCondition;
   upstreamId: string;
@@ -12,7 +32,7 @@ interface FormData {
   priority: number;
 }
 
-const EMPTY_FORM: FormData = {
+const EMPTY_FORM: FormValues = {
   name: "",
   condition: "default",
   upstreamId: "",
@@ -20,36 +40,36 @@ const EMPTY_FORM: FormData = {
   priority: 100,
 };
 
-function conditionLabel(condition: RuleCondition): string {
+function conditionTag(condition: RuleCondition) {
   switch (condition) {
     case "has_image":
-      return "包含图片";
+      return <Tag color="orange">包含图片</Tag>;
     case "default":
-      return "默认";
+      return <Tag color="green">默认</Tag>;
   }
 }
 
 export default function Rules() {
+  const { message, modal } = App.useApp();
   const [rules, setRules] = useState<Rule[]>([]);
   const [upstreams, setUpstreams] = useState<Upstream[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [showForm, setShowForm] = useState(false);
+  const [modalOpen, setModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [form, setForm] = useState<FormData>(EMPTY_FORM);
+  const [submitting, setSubmitting] = useState(false);
+  const [form] = Form.useForm<FormValues>();
 
   const loadConfig = useCallback(async () => {
     try {
       const config: Config = await api.getConfig();
       setRules(config.rules.toSorted((a, b) => a.priority - b.priority));
       setUpstreams(config.upstreams);
-      setError(null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "加载配置失败");
+      message.error(err instanceof Error ? err.message : "加载配置失败");
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [message]);
 
   useEffect(() => {
     loadConfig();
@@ -59,200 +79,221 @@ export default function Rules() {
     return upstreams.find((u) => u.id === id)?.name ?? `未知 (${id})`;
   }
 
-  function openAddForm() {
+  function openAddModal() {
     setEditingId(null);
-    setForm({
+    form.resetFields();
+    form.setFieldsValue({
       ...EMPTY_FORM,
       upstreamId: upstreams[0]?.id ?? "",
     });
-    setShowForm(true);
+    setModalOpen(true);
   }
 
-  function openEditForm(rule: Rule) {
+  function openEditModal(rule: Rule) {
     setEditingId(rule.id);
-    setForm({
+    form.setFieldsValue({
       name: rule.name,
       condition: rule.condition,
       upstreamId: rule.upstreamId,
       model: rule.model,
       priority: rule.priority,
     });
-    setShowForm(true);
+    setModalOpen(true);
   }
 
-  function closeForm() {
-    setShowForm(false);
+  function closeModal() {
+    setModalOpen(false);
     setEditingId(null);
+    form.resetFields();
   }
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    setError(null);
-
+  async function handleSubmit(values: FormValues) {
+    setSubmitting(true);
     try {
       if (editingId) {
-        await api.updateRule(editingId, form);
+        await api.updateRule(editingId, values);
+        message.success("路由规则已更新");
       } else {
-        await api.createRule(form);
+        await api.createRule(values);
+        message.success("路由规则已创建");
       }
-      closeForm();
+      closeModal();
       await loadConfig();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "保存路由规则失败");
+      message.error(err instanceof Error ? err.message : "保存路由规则失败");
+    } finally {
+      setSubmitting(false);
     }
   }
 
-  function handleDelete(id: string) {
-    Modal.confirm({
+  function handleDelete(id: string, name: string) {
+    modal.confirm({
       title: "确认删除",
-      content: "确定删除此路由规则？此操作不可撤销。",
+      content: `确定删除路由规则「${name}」？此操作不可撤销。`,
       okText: "删除",
       okType: "danger",
       cancelText: "取消",
       onOk: async () => {
-        setError(null);
         try {
           await api.deleteRule(id);
+          message.success("路由规则已删除");
           await loadConfig();
         } catch (err) {
-          setError(err instanceof Error ? err.message : "删除路由规则失败");
+          message.error(err instanceof Error ? err.message : "删除路由规则失败");
         }
       },
     });
   }
 
-  if (loading) {
-    return (
-      <div className="empty-state">
-        <p>加载中…</p>
-      </div>
-    );
-  }
+  const columns: ColumnsType<Rule> = [
+    {
+      title: "名称",
+      dataIndex: "name",
+      key: "name",
+      render: (text: string, record: Rule) => (
+        <Space direction="vertical" size={0}>
+          <Text strong>{text}</Text>
+          <Text type="secondary" style={{ fontSize: 12 }}>
+            → {getUpstreamName(record.upstreamId)} / {record.model}
+          </Text>
+        </Space>
+      ),
+    },
+    {
+      title: "条件",
+      dataIndex: "condition",
+      key: "condition",
+      render: (condition: RuleCondition) => conditionTag(condition),
+    },
+    {
+      title: "优先级",
+      dataIndex: "priority",
+      key: "priority",
+      sorter: (a, b) => a.priority - b.priority,
+      defaultSortOrder: "ascend" as const,
+    },
+    {
+      title: "操作",
+      key: "actions",
+      align: "right" as const,
+      render: (_: unknown, record: Rule) => (
+        <Space>
+          <Button
+            type="text"
+            size="small"
+            icon={<EditOutlined />}
+            onClick={() => openEditModal(record)}
+          >
+            编辑
+          </Button>
+          <Button
+            type="text"
+            size="small"
+            danger
+            icon={<DeleteOutlined />}
+            onClick={() => handleDelete(record.id, record.name)}
+          >
+            删除
+          </Button>
+        </Space>
+      ),
+    },
+  ];
 
   return (
     <div>
-      <div className="page-header">
-        <h2>路由规则</h2>
-        <button className="btn btn-primary" onClick={openAddForm}>
-          + 添加规则
-        </button>
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          marginBottom: 24,
+        }}
+      >
+        <Typography.Title level={3} style={{ margin: 0 }}>
+          路由规则
+        </Typography.Title>
+        <Button type="primary" icon={<PlusOutlined />} onClick={openAddModal}>
+          添加规则
+        </Button>
       </div>
 
-      {error && <div className="error-msg">{error}</div>}
+      <Table
+        columns={columns}
+        dataSource={rules}
+        rowKey="id"
+        loading={loading}
+        pagination={false}
+        locale={{ emptyText: "暂无路由规则配置" }}
+      />
 
-      {rules.length === 0 ? (
-        <div className="empty-state">
-          <p>暂无路由规则配置。</p>
-          <button className="btn btn-primary" onClick={openAddForm}>
-            添加第一条规则
-          </button>
-        </div>
-      ) : (
-        rules.map((rule) => (
-          <div className="card" key={rule.id}>
-            <div className="card-row">
-              <div>
-                <div className="card-title">{rule.name}</div>
-                <div className="card-subtitle">
-                  → {getUpstreamName(rule.upstreamId)} / {rule.model}
-                </div>
-              </div>
-              <div className="card-actions">
-                <button className="btn btn-ghost btn-sm" onClick={() => openEditForm(rule)}>
-                  编辑
-                </button>
-                <button className="btn btn-danger btn-sm" onClick={() => handleDelete(rule.id)}>
-                  删除
-                </button>
-              </div>
-            </div>
-            <div className="card-meta">
-              <span
-                className={`badge ${rule.condition === "default" ? "badge-accent" : "badge-warning"}`}
-              >
-                {conditionLabel(rule.condition)}
-              </span>
-              <span>优先级: {rule.priority}</span>
-            </div>
-          </div>
-        ))
-      )}
+      <Modal
+        title={editingId ? "编辑规则" : "添加规则"}
+        open={modalOpen}
+        onCancel={closeModal}
+        onOk={() => form.submit()}
+        confirmLoading={submitting}
+        destroyOnHidden
+        okText={editingId ? "保存更改" : "创建"}
+        cancelText="取消"
+      >
+        <Form
+          form={form}
+          layout="vertical"
+          onFinish={handleSubmit}
+          initialValues={EMPTY_FORM}
+          style={{ marginTop: 16 }}
+        >
+          <Form.Item
+            name="name"
+            label="名称"
+            rules={[{ required: true, message: "请输入名称" }]}
+          >
+            <Input placeholder="例如 图片消息" />
+          </Form.Item>
 
-      {showForm && (
-        <div className="form-overlay" onClick={closeForm}>
-          <div className="form-panel" onClick={(e) => e.stopPropagation()}>
-            <h3>{editingId ? "编辑规则" : "添加规则"}</h3>
-            <form onSubmit={handleSubmit}>
-              <div className="form-field">
-                <label htmlFor="rule-name">名称</label>
-                <input
-                  id="rule-name"
-                  type="text"
-                  value={form.name}
-                  onChange={(e) => setForm({ ...form, name: e.target.value })}
-                  placeholder="例如 图片消息"
-                  required
-                />
-              </div>
-              <div className="form-field">
-                <label htmlFor="rule-condition">条件</label>
-                <select
-                  id="rule-condition"
-                  value={form.condition}
-                  onChange={(e) => setForm({ ...form, condition: e.target.value as RuleCondition })}
-                >
-                  <option value="default">默认</option>
-                  <option value="has_image">包含图片</option>
-                </select>
-              </div>
-              <div className="form-field">
-                <label htmlFor="rule-upstream">上游服务</label>
-                <select
-                  id="rule-upstream"
-                  value={form.upstreamId}
-                  onChange={(e) => setForm({ ...form, upstreamId: e.target.value })}
-                >
-                  {upstreams.map((u) => (
-                    <option key={u.id} value={u.id}>
-                      {u.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div className="form-field">
-                <label htmlFor="rule-model">模型</label>
-                <input
-                  id="rule-model"
-                  type="text"
-                  value={form.model}
-                  onChange={(e) => setForm({ ...form, model: e.target.value })}
-                  placeholder="例如 claude-sonnet-4-6"
-                  required
-                />
-              </div>
-              <div className="form-field">
-                <label htmlFor="rule-priority">优先级</label>
-                <input
-                  id="rule-priority"
-                  type="number"
-                  value={form.priority}
-                  onChange={(e) => setForm({ ...form, priority: Number(e.target.value) })}
-                  min={0}
-                  required
-                />
-              </div>
-              <div className="form-actions">
-                <button type="button" className="btn btn-ghost" onClick={closeForm}>
-                  取消
-                </button>
-                <button type="submit" className="btn btn-primary">
-                  {editingId ? "保存更改" : "创建"}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+          <Form.Item
+            name="condition"
+            label="条件"
+            rules={[{ required: true }]}
+          >
+            <Select
+              options={[
+                { value: "default", label: "默认" },
+                { value: "has_image", label: "包含图片" },
+              ]}
+            />
+          </Form.Item>
+
+          <Form.Item
+            name="upstreamId"
+            label="上游服务"
+            rules={[{ required: true, message: "请选择上游服务" }]}
+          >
+            <Select
+              options={upstreams.map((u) => ({ value: u.id, label: u.name }))}
+              placeholder="选择上游服务"
+            />
+          </Form.Item>
+
+          <Form.Item
+            name="model"
+            label="模型"
+            rules={[{ required: true, message: "请输入模型名称" }]}
+          >
+            <Input placeholder="例如 claude-sonnet-4-6" />
+          </Form.Item>
+
+          <Form.Item
+            name="priority"
+            label="优先级"
+            rules={[{ required: true, message: "请输入优先级" }]}
+            tooltip="数字越小优先级越高"
+          >
+            <InputNumber min={0} style={{ width: "100%" }} />
+          </Form.Item>
+        </Form>
+      </Modal>
     </div>
   );
 }

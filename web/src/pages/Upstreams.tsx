@@ -1,16 +1,33 @@
 import { useState, useEffect, useCallback } from "react";
-import { Modal } from "antd";
+import {
+  Table,
+  Button,
+  Modal,
+  Form,
+  Input,
+  Space,
+  Tag,
+  App,
+  Typography,
+} from "antd";
+import {
+  PlusOutlined,
+  EditOutlined,
+  DeleteOutlined,
+  EyeInvisibleOutlined,
+} from "@ant-design/icons";
+import type { ColumnsType } from "antd/es/table";
 
 import type { Upstream, Config } from "../../../src/types";
 import { api } from "../api";
 
-interface FormData {
+const { Text } = Typography;
+
+interface FormValues {
   name: string;
   baseUrl: string;
   apiKey: string;
 }
-
-const EMPTY_FORM: FormData = { name: "", baseUrl: "", apiKey: "" };
 
 function maskApiKey(key: string): string {
   if (key.length <= 10) return "••••••";
@@ -18,216 +35,262 @@ function maskApiKey(key: string): string {
 }
 
 export default function Upstreams() {
+  const { message, modal } = App.useApp();
   const [upstreams, setUpstreams] = useState<Upstream[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [showForm, setShowForm] = useState(false);
+  const [modalOpen, setModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [form, setForm] = useState<FormData>(EMPTY_FORM);
   const [showKeyInput, setShowKeyInput] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [form] = Form.useForm<FormValues>();
 
   const loadConfig = useCallback(async () => {
     try {
       const config: Config = await api.getConfig();
       setUpstreams(config.upstreams);
-      setError(null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "加载配置失败");
+      message.error(err instanceof Error ? err.message : "加载配置失败");
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [message]);
 
   useEffect(() => {
     loadConfig();
   }, [loadConfig]);
 
-  function openAddForm() {
+  function openAddModal() {
     setEditingId(null);
-    setForm(EMPTY_FORM);
     setShowKeyInput(true);
-    setShowForm(true);
+    form.resetFields();
+    setModalOpen(true);
   }
 
-  function openEditForm(upstream: Upstream) {
+  function openEditModal(upstream: Upstream) {
     setEditingId(upstream.id);
-    setForm({
+    setShowKeyInput(false);
+    form.setFieldsValue({
       name: upstream.name,
       baseUrl: upstream.baseUrl,
       apiKey: upstream.apiKey,
     });
-    setShowKeyInput(false);
-    setShowForm(true);
+    setModalOpen(true);
   }
 
-  function closeForm() {
-    setShowForm(false);
+  function closeModal() {
+    setModalOpen(false);
     setEditingId(null);
-    setForm(EMPTY_FORM);
     setShowKeyInput(false);
+    form.resetFields();
   }
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    setError(null);
-
+  async function handleSubmit(values: FormValues) {
+    setSubmitting(true);
     try {
       if (editingId) {
         const updateData = showKeyInput
-          ? form
-          : { name: form.name, baseUrl: form.baseUrl };
+          ? values
+          : { name: values.name, baseUrl: values.baseUrl };
         await api.updateUpstream(editingId, updateData);
+        message.success("上游服务已更新");
       } else {
-        await api.createUpstream(form);
+        await api.createUpstream(values);
+        message.success("上游服务已创建");
       }
-      closeForm();
+      closeModal();
       await loadConfig();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "保存上游服务失败");
+      message.error(err instanceof Error ? err.message : "保存上游服务失败");
+    } finally {
+      setSubmitting(false);
     }
   }
 
-  function handleDelete(id: string) {
-    Modal.confirm({
+  function handleDelete(id: string, name: string) {
+    modal.confirm({
       title: "确认删除",
-      content: "确定删除此上游服务？此操作不可撤销。",
+      content: `确定删除上游服务「${name}」？此操作不可撤销。`,
       okText: "删除",
       okType: "danger",
       cancelText: "取消",
       onOk: async () => {
-        setError(null);
         try {
           await api.deleteUpstream(id);
+          message.success("上游服务已删除");
           await loadConfig();
         } catch (err) {
-          setError(err instanceof Error ? err.message : "删除上游服务失败");
+          message.error(err instanceof Error ? err.message : "删除上游服务失败");
         }
       },
     });
   }
 
-  if (loading) {
-    return (
-      <div className="empty-state">
-        <p>加载中…</p>
-      </div>
-    );
-  }
+  const columns: ColumnsType<Upstream> = [
+    {
+      title: "名称",
+      dataIndex: "name",
+      key: "name",
+      render: (text: string, record: Upstream) => (
+        <Space direction="vertical" size={0}>
+          <Text strong>{text}</Text>
+          <Text type="secondary" style={{ fontSize: 12 }}>
+            {record.baseUrl}
+          </Text>
+        </Space>
+      ),
+    },
+    {
+      title: "密钥",
+      key: "apiKey",
+      render: (_: unknown, record: Upstream) => (
+        <Text code className="font-mono">
+          {maskApiKey(record.apiKey)}
+        </Text>
+      ),
+    },
+    {
+      title: "认证",
+      key: "authScheme",
+      render: (_: unknown, record: Upstream) => (
+        <Tag color={record.authScheme === "x-api-key" ? "orange" : "blue"}>
+          {record.authScheme === "x-api-key" ? "X-API-Key" : "Bearer"}
+        </Tag>
+      ),
+    },
+    {
+      title: "ID",
+      dataIndex: "id",
+      key: "id",
+      render: (id: string) => (
+        <Text type="secondary" className="font-mono" style={{ fontSize: 12 }}>
+          {id}
+        </Text>
+      ),
+    },
+    {
+      title: "操作",
+      key: "actions",
+      align: "right" as const,
+      render: (_: unknown, record: Upstream) => (
+        <Space>
+          <Button
+            type="text"
+            size="small"
+            icon={<EditOutlined />}
+            onClick={() => openEditModal(record)}
+          >
+            编辑
+          </Button>
+          <Button
+            type="text"
+            size="small"
+            danger
+            icon={<DeleteOutlined />}
+            onClick={() => handleDelete(record.id, record.name)}
+          >
+            删除
+          </Button>
+        </Space>
+      ),
+    },
+  ];
 
   return (
     <div>
-      <div className="page-header">
-        <h2>上游服务</h2>
-        <button className="btn btn-primary" onClick={openAddForm}>
-          + 添加上游服务
-        </button>
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          marginBottom: 24,
+        }}
+      >
+        <Typography.Title level={3} style={{ margin: 0 }}>
+          上游服务
+        </Typography.Title>
+        <Button type="primary" icon={<PlusOutlined />} onClick={openAddModal}>
+          添加上游服务
+        </Button>
       </div>
 
-      {error && <div className="error-msg">{error}</div>}
+      <Table
+        columns={columns}
+        dataSource={upstreams}
+        rowKey="id"
+        loading={loading}
+        pagination={false}
+        locale={{ emptyText: "暂无上游服务配置" }}
+      />
 
-      {upstreams.length === 0 ? (
-        <div className="empty-state">
-          <p>暂无上游服务配置。</p>
-          <button className="btn btn-primary" onClick={openAddForm}>
-            添加第一个上游服务
-          </button>
-        </div>
-      ) : (
-        upstreams.map((upstream) => (
-          <div className="card" key={upstream.id}>
-            <div className="card-row">
-              <div>
-                <div className="card-title">{upstream.name}</div>
-                <div className="card-subtitle">{upstream.baseUrl}</div>
-              </div>
-              <div className="card-actions">
-                <button className="btn btn-ghost btn-sm" onClick={() => openEditForm(upstream)}>
-                  编辑
-                </button>
-                <button className="btn btn-danger btn-sm" onClick={() => handleDelete(upstream.id)}>
-                  删除
-                </button>
-              </div>
-            </div>
-            <div className="card-meta">
-              <span>
-                密钥: <span className="masked-key">{maskApiKey(upstream.apiKey)}</span>
-              </span>
-              <span>ID: {upstream.id}</span>
-            </div>
-          </div>
-        ))
-      )}
+      <Modal
+        title={editingId ? "编辑上游服务" : "添加上游服务"}
+        open={modalOpen}
+        onCancel={closeModal}
+        onOk={() => form.submit()}
+        confirmLoading={submitting}
+        destroyOnHidden
+        okText={editingId ? "保存更改" : "创建"}
+        cancelText="取消"
+      >
+        <Form
+          form={form}
+          layout="vertical"
+          onFinish={handleSubmit}
+          style={{ marginTop: 16 }}
+        >
+          <Form.Item
+            name="name"
+            label="名称"
+            rules={[{ required: true, message: "请输入名称" }]}
+          >
+            <Input placeholder="例如 Anthropic Official" />
+          </Form.Item>
 
-      {showForm && (
-        <div className="form-overlay" onClick={closeForm}>
-          <div className="form-panel" onClick={(e) => e.stopPropagation()}>
-            <h3>{editingId ? "编辑上游服务" : "添加上游服务"}</h3>
-            <form onSubmit={handleSubmit}>
-              <div className="form-field">
-                <label htmlFor="up-name">名称</label>
-                <input
-                  id="up-name"
-                  type="text"
-                  value={form.name}
-                  onChange={(e) => setForm({ ...form, name: e.target.value })}
-                  placeholder="例如 Anthropic Official"
-                  required
+          <Form.Item
+            name="baseUrl"
+            label="Base URL"
+            rules={[
+              { required: true, message: "请输入 Base URL" },
+              { type: "url", message: "请输入有效的 URL" },
+            ]}
+          >
+            <Input placeholder="https://api.anthropic.com" />
+          </Form.Item>
+
+          <Form.Item label="API Key">
+            {editingId && !showKeyInput ? (
+              <Space>
+                <Text code className="font-mono">
+                  {maskApiKey(form.getFieldValue("apiKey"))}
+                </Text>
+                <Button
+                  type="link"
+                  size="small"
+                  icon={<EyeInvisibleOutlined />}
+                  onClick={() => {
+                    form.setFieldValue("apiKey", "");
+                    setShowKeyInput(true);
+                  }}
+                >
+                  更换密钥
+                </Button>
+              </Space>
+            ) : (
+              <Form.Item
+                name="apiKey"
+                noStyle
+                rules={[{ required: !editingId, message: "请输入 API Key" }]}
+              >
+                <Input.Password
+                  placeholder="sk-ant-xxx"
+                  autoComplete="off"
+                  className="font-mono"
                 />
-              </div>
-              <div className="form-field">
-                <label htmlFor="up-url">Base URL</label>
-                <input
-                  id="up-url"
-                  type="url"
-                  value={form.baseUrl}
-                  onChange={(e) => setForm({ ...form, baseUrl: e.target.value })}
-                  placeholder="https://api.anthropic.com"
-                  required
-                />
-              </div>
-              <div className="form-field">
-                <label htmlFor="up-key">API Key</label>
-                {editingId && !showKeyInput ? (
-                  <div>
-                    <span className="masked-key">{maskApiKey(form.apiKey)}</span>
-                    <button
-                      type="button"
-                      className="btn btn-ghost btn-sm"
-                      style={{ marginLeft: 10 }}
-                      onClick={() => {
-                        setForm({ ...form, apiKey: "" });
-                        setShowKeyInput(true);
-                      }}
-                    >
-                      更换
-                    </button>
-                  </div>
-                ) : (
-                  <input
-                    id="up-key"
-                    type="password"
-                    className="mono"
-                    value={form.apiKey}
-                    onChange={(e) => setForm({ ...form, apiKey: e.target.value })}
-                    placeholder="sk-ant-xxx"
-                    required
-                    autoComplete="off"
-                  />
-                )}
-              </div>
-              <div className="form-actions">
-                <button type="button" className="btn btn-ghost" onClick={closeForm}>
-                  取消
-                </button>
-                <button type="submit" className="btn btn-primary">
-                  {editingId ? "保存更改" : "创建"}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+              </Form.Item>
+            )}
+          </Form.Item>
+        </Form>
+      </Modal>
     </div>
   );
 }
