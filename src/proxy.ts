@@ -79,7 +79,7 @@ function captureStreamForCache(
   imageHashes: string[],
   isStreaming: boolean,
 ): void {
-  const MAX_CACHE_BYTES = 512 * 1024;
+  const MAX_CACHE_CHARS = 512 * 1024;
   const controller = new AbortController();
 
   const processText = isStreaming
@@ -93,15 +93,15 @@ function captureStreamForCache(
       };
 
   let accumulated = "";
-  let bytesReceived = 0;
+  let charsReceived = 0;
 
   stream
     .pipeThrough(new TextDecoderStream())
     .pipeTo(
       new WritableStream<string>({
         write(chunk) {
-          bytesReceived += chunk.length;
-          if (bytesReceived > MAX_CACHE_BYTES) {
+          charsReceived += chunk.length;
+          if (charsReceived > MAX_CACHE_CHARS) {
             controller.abort();
             return;
           }
@@ -116,7 +116,10 @@ function captureStreamForCache(
       }),
       { signal: controller.signal },
     )
-    .catch(() => {});
+    .catch((err) => {
+      if (err?.name === "AbortError") return;
+      console.error("[缓存捕获失败]", err);
+    });
 }
 
 
@@ -146,6 +149,9 @@ export function buildProxyHandler(): (req: Request) => Promise<Response> {
       if (!match) {
         return Response.json({ error: { message: "没有匹配的路由规则" } }, { status: 502 });
       }
+
+      // Preserve original body for logging before transformation
+      const originalBody = body;
 
       // Transform messages for models that don't support images
       if (hasBody && !match.supportsImages) {
@@ -177,7 +183,7 @@ export function buildProxyHandler(): (req: Request) => Promise<Response> {
         upstream: match.upstream.name,
         model: match.model,
         requestHeaders: req.headers,
-        requestBody: body,
+        requestBody: originalBody,
         responseHeaders: upstreamRes.headers,
       });
 
