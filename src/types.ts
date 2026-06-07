@@ -3,6 +3,7 @@ export interface Upstream {
   name: string;
   baseUrl: string;
   apiKey: string;
+  authScheme?: "bearer" | "x-api-key";
 }
 
 export type RuleCondition = "has_image" | "default";
