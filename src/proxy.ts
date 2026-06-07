@@ -4,7 +4,7 @@ import { logRequest } from "./logger";
 import { matchRule } from "./router";
 import { extractTextFromSSE, extractTextFromJsonResponse } from "./stream-parser";
 import { transformMessagesForTextModel } from "./transform";
-import type { Message, Upstream } from "./types";
+import type { ContentBlock, Message, Upstream } from "./types";
 
 /**
  * Builds the request to send to the upstream API.
@@ -55,17 +55,15 @@ export function buildUpstreamRequest(
  * Returns an array of hex-encoded SHA-256 hashes.
  */
 async function extractImageHashes(messages: Message[]): Promise<string[]> {
-  const hashes: string[] = [];
+  const blocks: ContentBlock[] = [];
   for (const msg of messages) {
     if (Array.isArray(msg.content)) {
       for (const block of msg.content) {
-        if (block.type === "image") {
-          hashes.push(await hashImageBlock(block));
-        }
+        if (block.type === "image") blocks.push(block);
       }
     }
   }
-  return hashes;
+  return Promise.all(blocks.map(hashImageBlock));
 }
 
 /**

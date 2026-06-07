@@ -10,8 +10,25 @@ import type { Message, ContentBlock } from "./types";
  *   - Cache miss → { type: "text", text: "[image]" }
  */
 export async function transformMessagesForTextModel(messages: Message[]): Promise<Message[]> {
-  const result: Message[] = [];
+  // Phase 1: collect all image blocks and hash in parallel
+  const imageBlocks: ContentBlock[] = [];
+  for (const msg of messages) {
+    if (Array.isArray(msg.content)) {
+      for (const block of msg.content) {
+        if (block.type === "image") imageBlocks.push(block);
+      }
+    }
+  }
+  const hashes = await Promise.all(imageBlocks.map(hashImageBlock));
 
+  // Build a lookup from serialized block → cached summary
+  const summaryMap = new Map<string, string | undefined>();
+  imageBlocks.forEach((block, i) => {
+    summaryMap.set(JSON.stringify(block), getImageSummary(hashes[i]));
+  });
+
+  // Phase 2: build transformed messages using pre-computed summaryMap
+  const result: Message[] = [];
   for (const msg of messages) {
     if (typeof msg.content === "string") {
       result.push(msg);
@@ -21,8 +38,7 @@ export async function transformMessagesForTextModel(messages: Message[]): Promis
     const transformedContent: ContentBlock[] = [];
     for (const block of msg.content) {
       if (block.type === "image") {
-        const hash = await hashImageBlock(block);
-        const summary = getImageSummary(hash);
+        const summary = summaryMap.get(JSON.stringify(block));
         transformedContent.push(
           summary
             ? { type: "text", text: `[图片描述: ${summary}]` }
