@@ -15,7 +15,7 @@ export default function App() {
       <aside className="sidebar">
         <div className="sidebar-brand">
           <h1>3router</h1>
-          <span>API Proxy</span>
+          <span>API 代理</span>
         </div>
         <nav className="sidebar-nav">
           <button
@@ -23,14 +23,14 @@ export default function App() {
             onClick={() => setPage("upstreams")}
           >
             <span className="nav-icon">⬆</span>
-            Upstreams
+            上游服务
           </button>
           <button
             className={`nav-item ${page === "rules" ? "active" : ""}`}
             onClick={() => setPage("rules")}
           >
             <span className="nav-icon">⟐</span>
-            Rules
+            路由规则
           </button>
         </nav>
       </aside>

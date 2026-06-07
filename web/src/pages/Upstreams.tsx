@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { Modal } from "antd";
 
 import type { Upstream, Config } from "../../../src/types";
 import { api } from "../api";
@@ -31,7 +32,7 @@ export default function Upstreams() {
       setUpstreams(config.upstreams);
       setError(null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load config");
+      setError(err instanceof Error ? err.message : "加载配置失败");
     } finally {
       setLoading(false);
     }
@@ -82,26 +83,33 @@ export default function Upstreams() {
       closeForm();
       await loadConfig();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to save upstream");
+      setError(err instanceof Error ? err.message : "保存上游服务失败");
     }
   }
 
-  async function handleDelete(id: string) {
-    if (!confirm("Delete this upstream? This action cannot be undone.")) return;
-    setError(null);
-
-    try {
-      await api.deleteUpstream(id);
-      await loadConfig();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to delete upstream");
-    }
+  function handleDelete(id: string) {
+    Modal.confirm({
+      title: "确认删除",
+      content: "确定删除此上游服务？此操作不可撤销。",
+      okText: "删除",
+      okType: "danger",
+      cancelText: "取消",
+      onOk: async () => {
+        setError(null);
+        try {
+          await api.deleteUpstream(id);
+          await loadConfig();
+        } catch (err) {
+          setError(err instanceof Error ? err.message : "删除上游服务失败");
+        }
+      },
+    });
   }
 
   if (loading) {
     return (
       <div className="empty-state">
-        <p>Loading…</p>
+        <p>加载中…</p>
       </div>
     );
   }
@@ -109,9 +117,9 @@ export default function Upstreams() {
   return (
     <div>
       <div className="page-header">
-        <h2>Upstreams</h2>
+        <h2>上游服务</h2>
         <button className="btn btn-primary" onClick={openAddForm}>
-          + Add Upstream
+          + 添加上游服务
         </button>
       </div>
 
@@ -119,9 +127,9 @@ export default function Upstreams() {
 
       {upstreams.length === 0 ? (
         <div className="empty-state">
-          <p>No upstreams configured yet.</p>
+          <p>暂无上游服务配置。</p>
           <button className="btn btn-primary" onClick={openAddForm}>
-            Add your first upstream
+            添加第一个上游服务
           </button>
         </div>
       ) : (
@@ -134,16 +142,16 @@ export default function Upstreams() {
               </div>
               <div className="card-actions">
                 <button className="btn btn-ghost btn-sm" onClick={() => openEditForm(upstream)}>
-                  Edit
+                  编辑
                 </button>
                 <button className="btn btn-danger btn-sm" onClick={() => handleDelete(upstream.id)}>
-                  Delete
+                  删除
                 </button>
               </div>
             </div>
             <div className="card-meta">
               <span>
-                Key: <span className="masked-key">{maskApiKey(upstream.apiKey)}</span>
+                密钥: <span className="masked-key">{maskApiKey(upstream.apiKey)}</span>
               </span>
               <span>ID: {upstream.id}</span>
             </div>
@@ -154,16 +162,16 @@ export default function Upstreams() {
       {showForm && (
         <div className="form-overlay" onClick={closeForm}>
           <div className="form-panel" onClick={(e) => e.stopPropagation()}>
-            <h3>{editingId ? "Edit Upstream" : "Add Upstream"}</h3>
+            <h3>{editingId ? "编辑上游服务" : "添加上游服务"}</h3>
             <form onSubmit={handleSubmit}>
               <div className="form-field">
-                <label htmlFor="up-name">Name</label>
+                <label htmlFor="up-name">名称</label>
                 <input
                   id="up-name"
                   type="text"
                   value={form.name}
                   onChange={(e) => setForm({ ...form, name: e.target.value })}
-                  placeholder="e.g. Anthropic Official"
+                  placeholder="例如 Anthropic Official"
                   required
                 />
               </div>
@@ -192,7 +200,7 @@ export default function Upstreams() {
                         setShowKeyInput(true);
                       }}
                     >
-                      Change
+                      更换
                     </button>
                   </div>
                 ) : (
@@ -210,10 +218,10 @@ export default function Upstreams() {
               </div>
               <div className="form-actions">
                 <button type="button" className="btn btn-ghost" onClick={closeForm}>
-                  Cancel
+                  取消
                 </button>
                 <button type="submit" className="btn btn-primary">
-                  {editingId ? "Save Changes" : "Create"}
+                  {editingId ? "保存更改" : "创建"}
                 </button>
               </div>
             </form>

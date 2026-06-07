@@ -61,7 +61,7 @@ export async function handleApiRoute(req: Request): Promise<Response> {
     if (path === "/api/upstreams" && req.method === "POST") {
       const body = (await req.json()) as Omit<Upstream, "id">;
       if (!body.name || !body.baseUrl || !body.apiKey) {
-        return errorResponse("Missing required fields: name, baseUrl, apiKey", req);
+        return errorResponse("缺少必填字段：name、baseUrl、apiKey", req);
       }
       const upstream: Upstream = { ...body, id: generateId() };
       await updateConfig((config) => ({
@@ -74,7 +74,7 @@ export async function handleApiRoute(req: Request): Promise<Response> {
     // PUT /api/upstreams/:id — update
     if (path.startsWith("/api/upstreams/") && req.method === "PUT") {
       const id = extractId(req.url, "/api/upstreams");
-      if (!id) return errorResponse("Missing upstream ID", req);
+      if (!id) return errorResponse("缺少上游服务 ID", req);
       const body = (await req.json()) as Partial<Upstream>;
       let updated: Upstream | undefined;
       try {
@@ -86,7 +86,7 @@ export async function handleApiRoute(req: Request): Promise<Response> {
         });
       } catch (err) {
         if (err instanceof Error && err.message === "NOT_FOUND") {
-          return errorResponse("Upstream not found", req, 404);
+          return errorResponse("上游服务不存在", req, 404);
         }
         throw err;
       }
@@ -96,7 +96,7 @@ export async function handleApiRoute(req: Request): Promise<Response> {
     // DELETE /api/upstreams/:id — delete
     if (path.startsWith("/api/upstreams/") && req.method === "DELETE") {
       const id = extractId(req.url, "/api/upstreams");
-      if (!id) return errorResponse("Missing upstream ID", req);
+      if (!id) return errorResponse("缺少上游服务 ID", req);
       try {
         await updateConfig((config) => {
           const upstream = config.upstreams.find((u) => u.id === id);
@@ -109,10 +109,10 @@ export async function handleApiRoute(req: Request): Promise<Response> {
         });
       } catch (err) {
         const msg = err instanceof Error ? err.message : "";
-        if (msg === "UPSTREAM_NOT_FOUND") return errorResponse("Upstream not found", req, 404);
+        if (msg === "UPSTREAM_NOT_FOUND") return errorResponse("上游服务不存在", req, 404);
         if (msg.startsWith("REFERENCED_BY_RULES:")) {
           const count = msg.split(":")[1];
-          return errorResponse(`Cannot delete: ${count} rule(s) reference this upstream`, req);
+          return errorResponse(`无法删除：${count} 条规则引用了此上游服务`, req);
         }
         throw err;
       }
@@ -125,10 +125,10 @@ export async function handleApiRoute(req: Request): Promise<Response> {
     if (path === "/api/rules" && req.method === "POST") {
       const body = (await req.json()) as Omit<Rule, "id">;
       if (!body.name || !body.condition || !body.upstreamId || !body.model) {
-        return errorResponse("Missing required fields: name, condition, upstreamId, model", req);
+        return errorResponse("缺少必填字段：name、condition、upstreamId、model", req);
       }
       if (body.priority === undefined || body.priority === null) {
-        return errorResponse("Missing required field: priority", req);
+        return errorResponse("缺少必填字段：priority", req);
       }
       const rule: Rule = { ...body, id: generateId() };
       await updateConfig((config) => ({
@@ -141,7 +141,7 @@ export async function handleApiRoute(req: Request): Promise<Response> {
     // PUT /api/rules/:id — update
     if (path.startsWith("/api/rules/") && req.method === "PUT") {
       const id = extractId(req.url, "/api/rules");
-      if (!id) return errorResponse("Missing rule ID", req);
+      if (!id) return errorResponse("缺少规则 ID", req);
       const body = (await req.json()) as Partial<Rule>;
       let updated: Rule | undefined;
       try {
@@ -153,7 +153,7 @@ export async function handleApiRoute(req: Request): Promise<Response> {
         });
       } catch (err) {
         if (err instanceof Error && err.message === "NOT_FOUND") {
-          return errorResponse("Rule not found", req, 404);
+          return errorResponse("规则不存在", req, 404);
         }
         throw err;
       }
@@ -163,7 +163,7 @@ export async function handleApiRoute(req: Request): Promise<Response> {
     // DELETE /api/rules/:id — delete (must keep at least one default rule)
     if (path.startsWith("/api/rules/") && req.method === "DELETE") {
       const id = extractId(req.url, "/api/rules");
-      if (!id) return errorResponse("Missing rule ID", req);
+      if (!id) return errorResponse("缺少规则 ID", req);
       try {
         await updateConfig((config) => {
           const rule = config.rules.find((r) => r.id === id);
@@ -178,10 +178,10 @@ export async function handleApiRoute(req: Request): Promise<Response> {
         });
       } catch (err) {
         const msg = err instanceof Error ? err.message : "";
-        if (msg === "RULE_NOT_FOUND") return errorResponse("Rule not found", req, 404);
+        if (msg === "RULE_NOT_FOUND") return errorResponse("规则不存在", req, 404);
         if (msg === "LAST_DEFAULT_RULE") {
           return errorResponse(
-            "Cannot delete the last default rule — at least one default rule is required",
+            "无法删除最后一条默认规则，至少需要保留一条默认规则",
             req,
           );
         }
@@ -190,9 +190,9 @@ export async function handleApiRoute(req: Request): Promise<Response> {
       return jsonResponse({ success: true }, req);
     }
 
-    return errorResponse("Not found", req, 404);
+    return errorResponse("接口不存在", req, 404);
   } catch (err) {
-    const message = err instanceof Error ? err.message : "Internal API error";
+    const message = err instanceof Error ? err.message : "内部服务错误";
     console.error(`[api error] ${message}`);
     return errorResponse(message, req, 500);
   }

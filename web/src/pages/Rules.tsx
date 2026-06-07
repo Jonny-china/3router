@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { Modal } from "antd";
 
 import type { Rule, Upstream, Config, RuleCondition } from "../../../src/types";
 import { api } from "../api";
@@ -22,9 +23,9 @@ const EMPTY_FORM: FormData = {
 function conditionLabel(condition: RuleCondition): string {
   switch (condition) {
     case "has_image":
-      return "Has Image";
+      return "包含图片";
     case "default":
-      return "Default";
+      return "默认";
   }
 }
 
@@ -44,7 +45,7 @@ export default function Rules() {
       setUpstreams(config.upstreams);
       setError(null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load config");
+      setError(err instanceof Error ? err.message : "加载配置失败");
     } finally {
       setLoading(false);
     }
@@ -55,7 +56,7 @@ export default function Rules() {
   }, [loadConfig]);
 
   function getUpstreamName(id: string): string {
-    return upstreams.find((u) => u.id === id)?.name ?? `Unknown (${id})`;
+    return upstreams.find((u) => u.id === id)?.name ?? `未知 (${id})`;
   }
 
   function openAddForm() {
@@ -97,26 +98,33 @@ export default function Rules() {
       closeForm();
       await loadConfig();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to save rule");
+      setError(err instanceof Error ? err.message : "保存路由规则失败");
     }
   }
 
-  async function handleDelete(id: string) {
-    if (!confirm("Delete this rule? This action cannot be undone.")) return;
-    setError(null);
-
-    try {
-      await api.deleteRule(id);
-      await loadConfig();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to delete rule");
-    }
+  function handleDelete(id: string) {
+    Modal.confirm({
+      title: "确认删除",
+      content: "确定删除此路由规则？此操作不可撤销。",
+      okText: "删除",
+      okType: "danger",
+      cancelText: "取消",
+      onOk: async () => {
+        setError(null);
+        try {
+          await api.deleteRule(id);
+          await loadConfig();
+        } catch (err) {
+          setError(err instanceof Error ? err.message : "删除路由规则失败");
+        }
+      },
+    });
   }
 
   if (loading) {
     return (
       <div className="empty-state">
-        <p>Loading…</p>
+        <p>加载中…</p>
       </div>
     );
   }
@@ -124,9 +132,9 @@ export default function Rules() {
   return (
     <div>
       <div className="page-header">
-        <h2>Routing Rules</h2>
+        <h2>路由规则</h2>
         <button className="btn btn-primary" onClick={openAddForm}>
-          + Add Rule
+          + 添加规则
         </button>
       </div>
 
@@ -134,9 +142,9 @@ export default function Rules() {
 
       {rules.length === 0 ? (
         <div className="empty-state">
-          <p>No routing rules configured.</p>
+          <p>暂无路由规则配置。</p>
           <button className="btn btn-primary" onClick={openAddForm}>
-            Add your first rule
+            添加第一条规则
           </button>
         </div>
       ) : (
@@ -151,10 +159,10 @@ export default function Rules() {
               </div>
               <div className="card-actions">
                 <button className="btn btn-ghost btn-sm" onClick={() => openEditForm(rule)}>
-                  Edit
+                  编辑
                 </button>
                 <button className="btn btn-danger btn-sm" onClick={() => handleDelete(rule.id)}>
-                  Delete
+                  删除
                 </button>
               </div>
             </div>
@@ -164,7 +172,7 @@ export default function Rules() {
               >
                 {conditionLabel(rule.condition)}
               </span>
-              <span>Priority: {rule.priority}</span>
+              <span>优先级: {rule.priority}</span>
             </div>
           </div>
         ))
@@ -173,32 +181,32 @@ export default function Rules() {
       {showForm && (
         <div className="form-overlay" onClick={closeForm}>
           <div className="form-panel" onClick={(e) => e.stopPropagation()}>
-            <h3>{editingId ? "Edit Rule" : "Add Rule"}</h3>
+            <h3>{editingId ? "编辑规则" : "添加规则"}</h3>
             <form onSubmit={handleSubmit}>
               <div className="form-field">
-                <label htmlFor="rule-name">Name</label>
+                <label htmlFor="rule-name">名称</label>
                 <input
                   id="rule-name"
                   type="text"
                   value={form.name}
                   onChange={(e) => setForm({ ...form, name: e.target.value })}
-                  placeholder="e.g. Image Messages"
+                  placeholder="例如 图片消息"
                   required
                 />
               </div>
               <div className="form-field">
-                <label htmlFor="rule-condition">Condition</label>
+                <label htmlFor="rule-condition">条件</label>
                 <select
                   id="rule-condition"
                   value={form.condition}
                   onChange={(e) => setForm({ ...form, condition: e.target.value as RuleCondition })}
                 >
-                  <option value="default">Default</option>
-                  <option value="has_image">Has Image</option>
+                  <option value="default">默认</option>
+                  <option value="has_image">包含图片</option>
                 </select>
               </div>
               <div className="form-field">
-                <label htmlFor="rule-upstream">Upstream</label>
+                <label htmlFor="rule-upstream">上游服务</label>
                 <select
                   id="rule-upstream"
                   value={form.upstreamId}
@@ -212,18 +220,18 @@ export default function Rules() {
                 </select>
               </div>
               <div className="form-field">
-                <label htmlFor="rule-model">Model</label>
+                <label htmlFor="rule-model">模型</label>
                 <input
                   id="rule-model"
                   type="text"
                   value={form.model}
                   onChange={(e) => setForm({ ...form, model: e.target.value })}
-                  placeholder="e.g. claude-sonnet-4-6"
+                  placeholder="例如 claude-sonnet-4-6"
                   required
                 />
               </div>
               <div className="form-field">
-                <label htmlFor="rule-priority">Priority</label>
+                <label htmlFor="rule-priority">优先级</label>
                 <input
                   id="rule-priority"
                   type="number"
@@ -235,10 +243,10 @@ export default function Rules() {
               </div>
               <div className="form-actions">
                 <button type="button" className="btn btn-ghost" onClick={closeForm}>
-                  Cancel
+                  取消
                 </button>
                 <button type="submit" className="btn btn-primary">
-                  {editingId ? "Save Changes" : "Create"}
+                  {editingId ? "保存更改" : "创建"}
                 </button>
               </div>
             </form>
