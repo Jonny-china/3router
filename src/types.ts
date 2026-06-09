@@ -35,20 +35,8 @@ export interface Message {
   content: string | ContentBlock[];
 }
 
-export interface ProxyRequest {
-  method: string;
-  url: string;
-  headers: Headers;
-  body: {
-    model?: string;
-    messages?: Message[];
-    [key: string]: unknown;
-  };
-}
-
 export interface RouteMatch {
   upstream: Upstream;
   model: string;
-  ruleName: string;
   supportsImages: boolean;
 }

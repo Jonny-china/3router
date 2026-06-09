@@ -25,7 +25,6 @@ export function matchRule(
   return {
     upstream,
     model: matchedRule.model,
-    ruleName: matchedRule.name,
     supportsImages: matchedRule.supportsImages ?? false,
   };
 }

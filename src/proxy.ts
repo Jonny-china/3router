@@ -1,6 +1,5 @@
 import * as config from "./config";
 import { hashImageBlock, storeImageSummary } from "./image-cache";
-import { logRequest } from "./logger";
 import { matchRule } from "./router";
 import { extractTextFromSSE, extractTextFromJsonResponse } from "./stream-parser";
 import { transformMessagesForTextModel } from "./transform";
@@ -126,7 +125,6 @@ function captureStreamForCache(
  */
 export function buildProxyHandler(): (req: Request) => Promise<Response> {
   return async (req: Request): Promise<Response> => {
-    const startTime = Date.now();
     let body: Record<string, unknown> | null = null;
 
     try {
@@ -144,11 +142,11 @@ export function buildProxyHandler(): (req: Request) => Promise<Response> {
       const match = matchRule(messages, cfg.rules, cfg.upstreams);
 
       if (!match) {
-        return Response.json({ error: { message: "没有匹配的路由规则" } }, { status: 502 });
+        return Response.json(
+          { error: { message: "没有匹配的路由规则" } },
+          { status: 502, headers: { "Access-Control-Allow-Origin": "*" } },
+        );
       }
-
-      // Preserve original body for logging before transformation
-      const originalBody = body;
 
       // Transform messages for models that don't support images
       if (hasBody && !match.supportsImages) {
@@ -169,20 +167,6 @@ export function buildProxyHandler(): (req: Request) => Promise<Response> {
       const imageHashes = hasBody && match.supportsImages ? await extractImageHashes(messages) : [];
 
       const upstreamRes = await fetch(upstreamReq);
-      const duration = Date.now() - startTime;
-
-      logRequest({
-        method: req.method,
-        path: url.pathname,
-        status: upstreamRes.status,
-        durationMs: duration,
-        rule: match.ruleName,
-        upstream: match.upstream.name,
-        model: match.model,
-        requestHeaders: req.headers,
-        requestBody: originalBody,
-        responseHeaders: upstreamRes.headers,
-      });
 
       // Full transparency: pass through status, headers, and streaming body
       // Bun's fetch transparently decompresses gzip, so remove encoding/length
@@ -209,19 +193,11 @@ export function buildProxyHandler(): (req: Request) => Promise<Response> {
       });
     } catch (err) {
       const message = err instanceof Error ? err.message : "未知代理错误";
-      const duration = Date.now() - startTime;
-
-      logRequest({
-        method: req.method,
-        path: new URL(req.url).pathname,
-        status: 502,
-        durationMs: duration,
-        error: message,
-        requestHeaders: req.headers,
-        requestBody: body,
-      });
-
-      return Response.json({ error: { message: `代理错误：${message}` } }, { status: 502 });
+      console.error(`[代理错误] ${req.method} ${new URL(req.url).pathname} → ${message}`);
+      return Response.json(
+        { error: { message: `代理错误：${message}` } },
+        { status: 502, headers: { "Access-Control-Allow-Origin": "*" } },
+      );
     }
   };
 }

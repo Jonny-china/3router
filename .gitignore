@@ -1,9 +1,6 @@
 # Runtime config (contains API keys)
 config.json
 
-# Self-signed TLS certificates (auto-generated)
-certs/
-
 # Dependencies
 node_modules/
 
@@ -34,12 +31,12 @@ web/.vite/
 .DS_Store
 Thumbs.db
 
+# Test coverage
+coverage/
+
 # Logs
 logs/
 *.log
-
-# Test coverage
-coverage/
 
 # Bun
 bun.lockb
