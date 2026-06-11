@@ -158,16 +158,14 @@ describe("buildUpstreamRequest", () => {
 
 describe("buildProxyHandler", () => {
   let testDir: string;
-  let originalCwd: string;
 
   beforeEach(() => {
     testDir = mkdtempSync(join(tmpdir(), "3router-proxy-"));
-    originalCwd = process.cwd();
-    process.chdir(testDir);
+    process.env.THREEROUTER_HOME = testDir;
   });
 
   afterEach(() => {
-    process.chdir(originalCwd);
+    delete process.env.THREEROUTER_HOME;
     rmSync(testDir, { recursive: true, force: true });
   });
 

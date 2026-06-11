@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach } from "bun:test";
 import { mkdtempSync, rmSync, writeFileSync, mkdirSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { tmpdir, homedir } from "node:os";
 import { join } from "node:path";
 
 let testDir: string;
@@ -155,7 +155,6 @@ describe("getBasePath", () => {
   it("returns ~/.3router when THREEROUTER_HOME is not set", async () => {
     delete process.env.THREEROUTER_HOME;
     const { getBasePath } = await import("./config");
-    // Just verify it ends with .3router and uses homedir
-    expect(getBasePath()).toContain(".3router");
+    expect(getBasePath()).toBe(join(homedir(), ".3router"));
   });
 });
