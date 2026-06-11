@@ -193,6 +193,82 @@ function commandStart(): void {
   verifyStartup();
 }
 
+function commandStop(): void {
+  if (!isMacOS() && !isLinux()) {
+    console.error("错误: daemon 模式仅支持 macOS 和 Linux");
+    process.exit(1);
+  }
+
+  // Idempotency: not running and not installed
+  if (!isServiceRunning() && !isServiceRegistered()) {
+    console.log("3router is not running");
+    return;
+  }
+
+  console.log("正在停止 3router daemon...");
+
+  // Stop and unregister
+  if (isMacOS()) {
+    const uid = getUid();
+    try {
+      execSync(`launchctl bootout gui/${uid}/${LAUNCH_LABEL}`, { stdio: "inherit" });
+    } catch {
+      // Service may already be unloaded
+    }
+  } else {
+    try {
+      execSync("systemctl --user stop 3router", { stdio: "inherit" });
+    } catch {
+      // Service may already be stopped
+    }
+    try {
+      execSync("systemctl --user disable 3router", { stdio: "inherit" });
+    } catch {
+      // Best effort
+    }
+  }
+
+  // Remove service file
+  if (isMacOS()) {
+    const plistPath = getPlistPath();
+    if (existsSync(plistPath)) {
+      rmSync(plistPath);
+      console.log(`   已删除: ${plistPath}`);
+    }
+  } else {
+    const unitPath = getSystemdUnitPath();
+    if (existsSync(unitPath)) {
+      rmSync(unitPath);
+      execSync("systemctl --user daemon-reload", { stdio: "inherit" });
+      console.log(`   已删除: ${unitPath}`);
+    }
+  }
+
+  console.log("✅ 3router daemon 已停止");
+}
+
+function commandStatus(): void {
+  console.log(`3router v${VERSION}`);
+
+  if (isServiceRunning()) {
+    const pid = getServicePid();
+    console.log(`Status: running (PID ${pid || "unknown"})`);
+
+    try {
+      const config = readConfig();
+      console.log(`Port:   ${config.port}`);
+    } catch {
+      // Config may not be readable
+    }
+  } else {
+    console.log("Status: stopped");
+  }
+
+  console.log(`Config: ${getConfigPath()}`);
+}
+
+// --- Service management helpers ---
+
 function registerAndStartService(): void {
   if (isMacOS()) {
     const uid = getUid();
@@ -253,6 +329,12 @@ switch (command) {
     break;
   case "start":
     commandStart();
+    break;
+  case "stop":
+    commandStop();
+    break;
+  case "status":
+    commandStatus();
     break;
   default:
     console.error(`未知命令: ${command}`);
