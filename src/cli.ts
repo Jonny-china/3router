@@ -16,8 +16,9 @@ const VERSION = "0.2.0";
 
 // --- Utility ---
 
-function getServerPath(): string {
-  return join(import.meta.dir, "server.ts");
+function getCliPath(): string {
+  // The service file invokes `bun run <cli.ts> serve`
+  return join(import.meta.dir, "cli.ts");
 }
 
 function getLogsDir(): string {
@@ -172,7 +173,7 @@ function commandStart(): void {
 
   // Generate and write service file
   const bunPath = getBunPath();
-  const serverPath = getServerPath();
+  const serverPath = getCliPath();
 
   if (isMacOS()) {
     const plistContent = generatePlistContent(bunPath, serverPath, getLogsDir());
