@@ -132,10 +132,15 @@ function getServicePid(): string | null {
 // --- Commands ---
 
 function commandServe(): void {
-  import("./server").then(({ startServer }) => {
-    console.log("3router 前台模式运行中...");
-    startServer();
-  });
+  import("./server")
+    .then(({ startServer }) => {
+      console.log("3router 前台模式运行中...");
+      startServer();
+    })
+    .catch((err: unknown) => {
+      console.error("启动失败:", err instanceof Error ? err.message : String(err));
+      process.exit(1);
+    });
 }
 
 function commandStart(): void {
@@ -151,47 +156,62 @@ function commandStart(): void {
     return;
   }
 
-  // Idempotency: installed but not running — just start
-  if (isServiceRegistered()) {
-    console.log("3router 服务已安装但未运行，正在启动...");
-    startService();
+  // Remaining start logic is async (port pre-check uses isPortInUse)
+  void (async () => {
+    // Port pre-check (spec requirement: check port before starting)
+    try {
+      const config = readConfig();
+      const portBusy = await isPortInUse(config.port);
+      if (portBusy) {
+        console.error(`错误: 端口 ${config.port} 已被占用，请释放端口后重试`);
+        process.exit(1);
+      }
+    } catch {
+      // Config may not exist yet — will be initialized below
+    }
+
+    // Idempotency: installed but not running — just start
+    if (isServiceRegistered()) {
+      console.log("3router 服务已安装但未运行，正在启动...");
+      startService();
+      verifyStartup();
+      return;
+    }
+
+    // Fresh install: generate service file, register, start
+    console.log("正在安装 3router daemon...");
+
+    // Initialize config if needed
+    if (initConfig()) {
+      console.log(`📝 配置已初始化: ${getConfigPath()}`);
+      console.log("   请编辑配置文件以添加你的 API Key。");
+    }
+
+    // Create logs directory
+    mkdirSync(getLogsDir(), { recursive: true });
+
+    // Generate and write service file
+    const bunPath = getBunPath();
+    const serverPath = getCliPath();
+
+    if (isMacOS()) {
+      const plistContent = generatePlistContent(bunPath, serverPath, getLogsDir());
+      const plistPath = getPlistPath();
+      mkdirSync(dirname(plistPath), { recursive: true });
+      writeFileSync(plistPath, plistContent);
+      console.log(`   Plist 已写入: ${plistPath}`);
+    } else {
+      const unitContent = generateSystemdUnitContent(bunPath, serverPath);
+      const unitPath = getSystemdUnitPath();
+      mkdirSync(dirname(unitPath), { recursive: true });
+      writeFileSync(unitPath, unitContent);
+      console.log(`   Unit 已写入: ${unitPath}`);
+    }
+
+    // Register and start
+    registerAndStartService();
     verifyStartup();
-    return;
-  }
-
-  // Fresh install: generate service file, register, start
-  console.log("正在安装 3router daemon...");
-
-  // Initialize config if needed
-  if (initConfig()) {
-    console.log(`📝 配置已初始化: ${getConfigPath()}`);
-    console.log("   请编辑配置文件以添加你的 API Key。");
-  }
-
-  // Create logs directory
-  mkdirSync(getLogsDir(), { recursive: true });
-
-  // Generate and write service file
-  const bunPath = getBunPath();
-  const serverPath = getCliPath();
-
-  if (isMacOS()) {
-    const plistContent = generatePlistContent(bunPath, serverPath, getLogsDir());
-    const plistPath = getPlistPath();
-    mkdirSync(dirname(plistPath), { recursive: true });
-    writeFileSync(plistPath, plistContent);
-    console.log(`   Plist 已写入: ${plistPath}`);
-  } else {
-    const unitContent = generateSystemdUnitContent(bunPath, serverPath);
-    const unitPath = getSystemdUnitPath();
-    mkdirSync(dirname(unitPath), { recursive: true });
-    writeFileSync(unitPath, unitContent);
-    console.log(`   Unit 已写入: ${unitPath}`);
-  }
-
-  // Register and start
-  registerAndStartService();
-  verifyStartup();
+  })();
 }
 
 function commandStop(): void {
