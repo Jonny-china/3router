@@ -1,0 +1,34 @@
+#!/usr/bin/env node
+
+import { execFileSync } from "node:child_process";
+import { fileURLToPath } from "node:url";
+import path from "node:path";
+
+// Check if Bun is installed
+let bunPath;
+try {
+  bunPath = execFileSync("which", ["bun"], { encoding: "utf-8" }).trim();
+} catch {
+  console.error("Error: Bun runtime is required but not installed.");
+  console.error("");
+  console.error("Install Bun:");
+  console.error("  curl -fsSL https://bun.sh/install | bash");
+  console.error("");
+  console.error("Then try again:");
+  console.error("  3router " + process.argv.slice(2).join(" "));
+  process.exit(1);
+}
+
+// Resolve path to src/cli.ts relative to this script
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const cliPath = path.join(__dirname, "..", "src", "cli.ts");
+
+// Delegate to Bun
+try {
+  execFileSync(bunPath, ["run", cliPath, ...process.argv.slice(2)], {
+    stdio: "inherit",
+  });
+} catch (err) {
+  // execFileSync throws on non-zero exit; the child already printed output
+  process.exit(err.status || 1);
+}
