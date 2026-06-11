@@ -1,14 +1,24 @@
-import { readFileSync, writeFileSync, renameSync, existsSync, copyFileSync, rmSync } from "node:fs";
-import { join } from "node:path";
+import { readFileSync, writeFileSync, renameSync, existsSync, copyFileSync, rmSync, mkdirSync } from "node:fs";
+import { homedir } from "node:os";
+import { join, dirname } from "node:path";
 
 import type { Config } from "./types";
 
+/**
+ * Returns the base directory for 3router configuration.
+ * Override with THREEROUTER_HOME env var for testing.
+ */
+export function getBasePath(): string {
+  return process.env.THREEROUTER_HOME || join(homedir(), ".3router");
+}
+
 export function getConfigPath(): string {
-  return join(process.cwd(), "config.json");
+  return join(getBasePath(), "config.json");
 }
 
 function getExamplePath(): string {
-  return join(process.cwd(), "config.example.json");
+  // Resolved relative to this file: src/config.ts → package root
+  return join(dirname(import.meta.dir), "config.example.json");
 }
 
 export function readConfig(): Config {
@@ -58,7 +68,6 @@ export async function updateConfig(
     renameSync(tmpPath, configPath);
     return newConfig;
   } catch (err) {
-    // Clean up temp file on failure
     try { rmSync(getConfigPath() + ".tmp", { force: true }); } catch { /* best effort */ }
     throw err;
   } finally {
@@ -71,9 +80,19 @@ export async function saveConfig(config: Config): Promise<void> {
 }
 
 export function initConfig(): boolean {
-  if (existsSync(getConfigPath())) {
+  const basePath = getBasePath();
+  const configPath = getConfigPath();
+
+  if (existsSync(configPath)) {
     return false;
   }
-  copyFileSync(getExamplePath(), getConfigPath());
+
+  mkdirSync(basePath, { recursive: true });
+
+  const examplePath = getExamplePath();
+  if (!existsSync(examplePath)) {
+    throw new Error(`找不到配置模板文件: ${examplePath}`);
+  }
+  copyFileSync(examplePath, configPath);
   return true;
 }

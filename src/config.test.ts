@@ -1,19 +1,17 @@
 import { describe, it, expect, beforeEach, afterEach } from "bun:test";
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, rmSync, writeFileSync, mkdirSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 let testDir: string;
-let originalCwd: string;
 
 beforeEach(() => {
   testDir = mkdtempSync(join(tmpdir(), "3router-test-"));
-  originalCwd = process.cwd();
-  process.chdir(testDir);
+  process.env.THREEROUTER_HOME = testDir;
 });
 
 afterEach(() => {
-  process.chdir(originalCwd);
+  delete process.env.THREEROUTER_HOME;
   rmSync(testDir, { recursive: true, force: true });
 });
 
@@ -37,7 +35,7 @@ const validConfig = {
 };
 
 describe("readConfig", () => {
-  it("reads and parses a valid config.json", async () => {
+  it("reads and parses a valid config.json from THREEROUTER_HOME", async () => {
     writeConfigFile(validConfig);
     const { readConfig } = await import("./config");
     const config = readConfig();
@@ -109,7 +107,7 @@ describe("validateConfig", () => {
 });
 
 describe("saveConfig", () => {
-  it("writes config to config.json", async () => {
+  it("writes config to config.json in THREEROUTER_HOME", async () => {
     writeConfigFile(validConfig);
     const { saveConfig, readConfig } = await import("./config");
     const config = { ...validConfig, port: 8080 };
@@ -122,21 +120,42 @@ describe("saveConfig", () => {
 
 describe("initConfig", () => {
   it("copies config.example.json to config.json when config.json is missing", async () => {
-    // Write the example config in the test dir (simulating project root)
-    writeFileSync(join(testDir, "config.example.json"), JSON.stringify(validConfig));
-    const { initConfig } = await import("./config");
+    // The example config is resolved via import.meta.dir in config.ts,
+    // so it reads from the package root, not THREEROUTER_HOME.
+    // This test verifies that initConfig creates the config in THREEROUTER_HOME.
+    const { initConfig, readConfig } = await import("./config");
     const result = initConfig();
     expect(result).toBe(true);
-    const { readConfig } = await import("./config");
     const config = readConfig();
     expect(config.port).toBe(9191);
   });
 
   it("returns false when config.json already exists", async () => {
     writeConfigFile(validConfig);
-    writeFileSync(join(testDir, "config.example.json"), JSON.stringify(validConfig));
     const { initConfig } = await import("./config");
     const result = initConfig();
     expect(result).toBe(false);
+  });
+
+  it("creates THREEROUTER_HOME directory if it does not exist", async () => {
+    const nestedDir = join(testDir, "nested", ".3router");
+    process.env.THREEROUTER_HOME = nestedDir;
+    const { initConfig } = await import("./config");
+    const result = initConfig();
+    expect(result).toBe(true);
+  });
+});
+
+describe("getBasePath", () => {
+  it("returns THREEROUTER_HOME when set", async () => {
+    const { getBasePath } = await import("./config");
+    expect(getBasePath()).toBe(testDir);
+  });
+
+  it("returns ~/.3router when THREEROUTER_HOME is not set", async () => {
+    delete process.env.THREEROUTER_HOME;
+    const { getBasePath } = await import("./config");
+    // Just verify it ends with .3router and uses homedir
+    expect(getBasePath()).toContain(".3router");
   });
 });
