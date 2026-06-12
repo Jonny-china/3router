@@ -1,5 +1,6 @@
 import { execSync } from "node:child_process";
 import { existsSync, mkdirSync, writeFileSync, rmSync } from "node:fs";
+import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 
 import { getBasePath, getConfigPath, readConfig, initConfig, validateConfig } from "./config";
@@ -42,32 +43,30 @@ function getBunPath(): string {
   return result;
 }
 
+let cachedUid: string | undefined;
 function getUid(): string {
-  return execSync("id -u", { encoding: "utf-8" }).trim();
+  if (!cachedUid) {
+    cachedUid = execSync("id -u", { encoding: "utf-8" }).trim();
+  }
+  return cachedUid;
 }
 
 // --- Service file paths ---
 
 function getPlistPath(): string {
-  return join(
-    process.env.HOME || "~",
-    "Library",
-    "LaunchAgents",
-    `${LAUNCH_LABEL}.plist`,
-  );
+  return join(homedir(), "Library", "LaunchAgents", `${LAUNCH_LABEL}.plist`);
 }
 
 function getSystemdUnitPath(): string {
-  return join(
-    process.env.HOME || "~",
-    ".config",
-    "systemd",
-    "user",
-    SYSTEMD_UNIT_NAME,
-  );
+  return join(homedir(), ".config", "systemd", "user", SYSTEMD_UNIT_NAME);
 }
 
 // --- Service state detection ---
+
+interface ServiceState {
+  running: boolean;
+  pid: string | null;
+}
 
 function isServiceRegistered(): boolean {
   if (isMacOS()) {
@@ -79,54 +78,36 @@ function isServiceRegistered(): boolean {
   return false;
 }
 
-function isServiceRunning(): boolean {
-  if (isMacOS()) {
-    try {
-      const output = execSync(`launchctl print gui/${getUid()}/${LAUNCH_LABEL} 2>/dev/null`, {
-        encoding: "utf-8",
-      });
-      return output.includes(LAUNCH_LABEL);
-    } catch {
-      return false;
-    }
-  }
-  if (isLinux()) {
-    try {
-      const output = execSync("systemctl --user is-active 3router 2>/dev/null", {
-        encoding: "utf-8",
-      }).trim();
-      return output === "active";
-    } catch {
-      return false;
-    }
-  }
-  return false;
-}
-
-function getServicePid(): string | null {
+function getServiceState(): ServiceState {
   if (isMacOS()) {
     try {
       const output = execSync(`launchctl print gui/${getUid()}/${LAUNCH_LABEL} 2>/dev/null`, {
         encoding: "utf-8",
       });
       const match = output.match(/pid = (\d+)/);
-      return match?.[1] ?? null;
+      return { running: true, pid: match?.[1] ?? null };
     } catch {
-      return null;
+      return { running: false, pid: null };
     }
   }
   if (isLinux()) {
     try {
-      const output = execSync(
+      const active = execSync("systemctl --user is-active 3router 2>/dev/null", {
+        encoding: "utf-8",
+      }).trim();
+      if (active !== "active") {
+        return { running: false, pid: null };
+      }
+      const pid = execSync(
         "systemctl --user show 3router --property=MainPID --value 2>/dev/null",
         { encoding: "utf-8" },
       ).trim();
-      return output && output !== "0" ? output : null;
+      return { running: true, pid: pid && pid !== "0" ? pid : null };
     } catch {
-      return null;
+      return { running: false, pid: null };
     }
   }
-  return null;
+  return { running: false, pid: null };
 }
 
 // --- Commands ---
@@ -144,15 +125,10 @@ function commandServe(): void {
 }
 
 function commandStart(): void {
-  if (!isMacOS() && !isLinux()) {
-    console.error("错误: daemon 模式仅支持 macOS 和 Linux");
-    process.exit(1);
-  }
-
   // Idempotency: already running
-  if (isServiceRunning()) {
-    const pid = getServicePid();
-    console.log(`3router is already running (PID ${pid || "unknown"})`);
+  const state = getServiceState();
+  if (state.running) {
+    console.log(`3router is already running (PID ${state.pid || "unknown"})`);
     return;
   }
 
@@ -215,26 +191,26 @@ function commandStart(): void {
 }
 
 function commandStop(): void {
-  if (!isMacOS() && !isLinux()) {
-    console.error("错误: daemon 模式仅支持 macOS 和 Linux");
-    process.exit(1);
-  }
-
   // Idempotency: not running and not installed
-  if (!isServiceRunning() && !isServiceRegistered()) {
+  const state = getServiceState();
+  if (!state.running && !isServiceRegistered()) {
     console.log("3router is not running");
     return;
   }
 
   console.log("正在停止 3router daemon...");
 
-  // Stop and unregister
   if (isMacOS()) {
     const uid = getUid();
     try {
       execSync(`launchctl bootout gui/${uid}/${LAUNCH_LABEL}`, { stdio: "inherit" });
     } catch {
       // Service may already be unloaded
+    }
+    const plistPath = getPlistPath();
+    if (existsSync(plistPath)) {
+      rmSync(plistPath);
+      console.log(`   已删除: ${plistPath}`);
     }
   } else {
     try {
@@ -247,16 +223,6 @@ function commandStop(): void {
     } catch {
       // Best effort
     }
-  }
-
-  // Remove service file
-  if (isMacOS()) {
-    const plistPath = getPlistPath();
-    if (existsSync(plistPath)) {
-      rmSync(plistPath);
-      console.log(`   已删除: ${plistPath}`);
-    }
-  } else {
     const unitPath = getSystemdUnitPath();
     if (existsSync(unitPath)) {
       rmSync(unitPath);
@@ -271,9 +237,9 @@ function commandStop(): void {
 function commandStatus(): void {
   console.log(`3router v${VERSION}`);
 
-  if (isServiceRunning()) {
-    const pid = getServicePid();
-    console.log(`Status: running (PID ${pid || "unknown"})`);
+  const state = getServiceState();
+  if (state.running) {
+    console.log(`Status: running (PID ${state.pid || "unknown"})`);
 
     try {
       const config = readConfig();
@@ -343,6 +309,11 @@ function verifyStartup(): void {
 
 const args = process.argv.slice(2);
 const command = args[0] || "serve";
+
+if ((command === "start" || command === "stop") && !isMacOS() && !isLinux()) {
+  console.error("错误: daemon 模式仅支持 macOS 和 Linux");
+  process.exit(1);
+}
 
 switch (command) {
   case "serve":
