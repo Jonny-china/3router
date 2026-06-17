@@ -3,7 +3,7 @@ import { existsSync, mkdirSync, writeFileSync, rmSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 
-import { getBasePath, getConfigPath, readConfig, initConfig, validateConfig } from "./config";
+import { getBasePath, getConfigPath, readConfig, initConfig } from "./config";
 import {
   LAUNCH_LABEL,
   SYSTEMD_UNIT_NAME,
@@ -98,10 +98,9 @@ function getServiceState(): ServiceState {
       if (active !== "active") {
         return { running: false, pid: null };
       }
-      const pid = execSync(
-        "systemctl --user show 3router --property=MainPID --value 2>/dev/null",
-        { encoding: "utf-8" },
-      ).trim();
+      const pid = execSync("systemctl --user show 3router --property=MainPID --value 2>/dev/null", {
+        encoding: "utf-8",
+      }).trim();
       return { running: true, pid: pid && pid !== "0" ? pid : null };
     } catch {
       return { running: false, pid: null };

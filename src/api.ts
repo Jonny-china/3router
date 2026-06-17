@@ -1,10 +1,7 @@
 import { readConfig, updateConfig } from "./config";
 import type { Upstream, Rule } from "./types";
 
-const ALLOWED_ORIGINS = [
-  "http://localhost:5173",
-  "http://localhost:9191",
-];
+const ALLOWED_ORIGINS = ["http://localhost:5173", "http://localhost:9191"];
 
 function getCorsHeaders(req: Request): Record<string, string> {
   const origin = req.headers.get("origin") || "";
@@ -82,7 +79,10 @@ export async function handleApiRoute(req: Request): Promise<Response> {
           const index = config.upstreams.findIndex((u) => u.id === id);
           if (index === -1) throw new Error("NOT_FOUND");
           updated = { ...config.upstreams[index], ...body, id };
-          return { ...config, upstreams: config.upstreams.map((u) => (u.id === id ? updated! : u)) };
+          return {
+            ...config,
+            upstreams: config.upstreams.map((u) => (u.id === id ? updated! : u)),
+          };
         });
       } catch (err) {
         if (err instanceof Error && err.message === "NOT_FOUND") {
@@ -180,10 +180,7 @@ export async function handleApiRoute(req: Request): Promise<Response> {
         const msg = err instanceof Error ? err.message : "";
         if (msg === "RULE_NOT_FOUND") return errorResponse("规则不存在", req, 404);
         if (msg === "LAST_DEFAULT_RULE") {
-          return errorResponse(
-            "无法删除最后一条默认规则，至少需要保留一条默认规则",
-            req,
-          );
+          return errorResponse("无法删除最后一条默认规则，至少需要保留一条默认规则", req);
         }
         throw err;
       }

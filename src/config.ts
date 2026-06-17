@@ -1,4 +1,12 @@
-import { readFileSync, writeFileSync, renameSync, existsSync, copyFileSync, rmSync, mkdirSync } from "node:fs";
+import {
+  readFileSync,
+  writeFileSync,
+  renameSync,
+  existsSync,
+  copyFileSync,
+  rmSync,
+  mkdirSync,
+} from "node:fs";
 import { homedir } from "node:os";
 import { join, dirname } from "node:path";
 
@@ -48,9 +56,7 @@ export function validateConfig(config: Config): void {
 // Module-level write lock to serialize concurrent config mutations
 let writeLock: Promise<void> = Promise.resolve();
 
-export async function updateConfig(
-  transform: (config: Config) => Config,
-): Promise<Config> {
+export async function updateConfig(transform: (config: Config) => Config): Promise<Config> {
   const previousLock = writeLock;
   let releaseLock: () => void;
   writeLock = new Promise<void>((resolve) => {
@@ -68,7 +74,11 @@ export async function updateConfig(
     renameSync(tmpPath, configPath);
     return newConfig;
   } catch (err) {
-    try { rmSync(getConfigPath() + ".tmp", { force: true }); } catch { /* best effort */ }
+    try {
+      rmSync(getConfigPath() + ".tmp", { force: true });
+    } catch {
+      /* best effort */
+    }
     throw err;
   } finally {
     releaseLock!();

@@ -1,4 +1,6 @@
 import { describe, it, expect } from "bun:test";
+import { createServer } from "node:net";
+
 import {
   generatePlistContent,
   generateSystemdUnitContent,
@@ -7,7 +9,6 @@ import {
   LAUNCH_LABEL,
   SYSTEMD_UNIT_NAME,
 } from "./service";
-import { createServer } from "node:net";
 
 describe("generatePlistContent", () => {
   it("generates valid XML with correct label", () => {
@@ -18,7 +19,11 @@ describe("generatePlistContent", () => {
   });
 
   it("includes ProgramArguments with bun run and serve", () => {
-    const plist = generatePlistContent("/usr/local/bin/bun", "/opt/3router/src/server.ts", "/home/user/.3router/logs");
+    const plist = generatePlistContent(
+      "/usr/local/bin/bun",
+      "/opt/3router/src/server.ts",
+      "/home/user/.3router/logs",
+    );
     expect(plist).toContain("<string>/usr/local/bin/bun</string>");
     expect(plist).toContain("<string>run</string>");
     expect(plist).toContain("<string>/opt/3router/src/server.ts</string>");
@@ -36,7 +41,11 @@ describe("generatePlistContent", () => {
   });
 
   it("sets correct log paths", () => {
-    const plist = generatePlistContent("/usr/local/bin/bun", "/path/to/server.ts", "/home/user/.3router/logs");
+    const plist = generatePlistContent(
+      "/usr/local/bin/bun",
+      "/path/to/server.ts",
+      "/home/user/.3router/logs",
+    );
     expect(plist).toContain("<string>/home/user/.3router/logs/stdout.log</string>");
     expect(plist).toContain("<string>/home/user/.3router/logs/stderr.log</string>");
   });
@@ -97,7 +106,6 @@ describe("isPortInUse", () => {
     await new Promise<void>((resolve) => {
       server.listen(0, () => resolve());
     });
-    const port = (server.address() as { port: number }).port;
     await new Promise<void>((resolve) => server.close(() => resolve()));
 
     const result = await isPortInUse(59999);

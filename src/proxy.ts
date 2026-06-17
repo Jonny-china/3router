@@ -77,7 +77,6 @@ function captureStreamForCache(
   isStreaming: boolean,
 ): void {
   const MAX_CACHE_CHARS = 512 * 1024;
-  const controller = new AbortController();
 
   const processText = isStreaming
     ? extractTextFromSSE
@@ -89,34 +88,37 @@ function captureStreamForCache(
         }
       };
 
-  let accumulated = "";
-  let charsReceived = 0;
-
-  stream
-    .pipeThrough(new TextDecoderStream())
-    .pipeTo(
-      new WritableStream<string>({
-        write(chunk) {
-          charsReceived += chunk.length;
-          if (charsReceived > MAX_CACHE_CHARS) {
-            controller.abort();
-            return;
-          }
-          accumulated += chunk;
-        },
-        close() {
-          const extracted = processText(accumulated);
-          if (extracted && imageHashes.length > 0) {
-            storeImageSummary(imageHashes, extracted);
-          }
-        },
-      }),
-      { signal: controller.signal },
-    )
-    .catch((err) => {
-      if (err?.name === "AbortError") return;
+  // Fire-and-forget: read the tee'd stream branch, accumulate decoded text,
+  // and cache it under the image hashes when the stream closes.
+  void (async () => {
+    let accumulated = "";
+    let charsReceived = 0;
+    const reader = stream.getReader();
+    const decoder = new TextDecoder();
+    try {
+      for (;;) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        const chunk = decoder.decode(value, { stream: true });
+        charsReceived += chunk.length;
+        if (charsReceived > MAX_CACHE_CHARS) {
+          await reader.cancel().catch(() => {});
+          return;
+        }
+        accumulated += chunk;
+      }
+      // Flush any trailing bytes held in the decoder.
+      const tail = decoder.decode();
+      if (tail) accumulated += tail;
+      const extracted = processText(accumulated);
+      if (extracted && imageHashes.length > 0) {
+        storeImageSummary(imageHashes, extracted);
+      }
+    } catch (err) {
+      if (err instanceof Error && err.name === "AbortError") return;
       console.error("[缓存捕获失败]", err);
-    });
+    }
+  })();
 }
 
 /**

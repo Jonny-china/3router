@@ -1,22 +1,12 @@
-import { useState, useEffect, useCallback } from "react";
-import {
-  Table,
-  Button,
-  Modal,
-  Form,
-  Input,
-  Space,
-  Tag,
-  App,
-  Typography,
-} from "antd";
 import {
   PlusOutlined,
   EditOutlined,
   DeleteOutlined,
   EyeInvisibleOutlined,
 } from "@ant-design/icons";
+import { Table, Button, Modal, Form, Input, Space, Tag, App, Typography } from "antd";
 import type { ColumnsType } from "antd/es/table";
+import { useState, useEffect, useCallback } from "react";
 
 import type { Upstream, Config } from "../../../src/types";
 import { api } from "../api";
@@ -88,9 +78,7 @@ export default function Upstreams() {
     setSubmitting(true);
     try {
       if (editingId) {
-        const updateData = showKeyInput
-          ? values
-          : { name: values.name, baseUrl: values.baseUrl };
+        const updateData = showKeyInput ? values : { name: values.name, baseUrl: values.baseUrl };
         await api.updateUpstream(editingId, updateData);
         message.success("上游服务已更新");
       } else {
@@ -232,17 +220,8 @@ export default function Upstreams() {
         okText={editingId ? "保存更改" : "创建"}
         cancelText="取消"
       >
-        <Form
-          form={form}
-          layout="vertical"
-          onFinish={handleSubmit}
-          style={{ marginTop: 16 }}
-        >
-          <Form.Item
-            name="name"
-            label="名称"
-            rules={[{ required: true, message: "请输入名称" }]}
-          >
+        <Form form={form} layout="vertical" onFinish={handleSubmit} style={{ marginTop: 16 }}>
+          <Form.Item name="name" label="名称" rules={[{ required: true, message: "请输入名称" }]}>
             <Input placeholder="例如 Anthropic Official" />
           </Form.Item>
 
@@ -281,11 +260,7 @@ export default function Upstreams() {
                 noStyle
                 rules={[{ required: !editingId, message: "请输入 API Key" }]}
               >
-                <Input.Password
-                  placeholder="sk-ant-xxx"
-                  autoComplete="off"
-                  className="font-mono"
-                />
+                <Input.Password placeholder="sk-ant-xxx" autoComplete="off" className="font-mono" />
               </Form.Item>
             )}
           </Form.Item>

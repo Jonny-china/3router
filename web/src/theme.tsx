@@ -1,5 +1,5 @@
-import { createContext, useContext, useState, useEffect } from "react";
 import { ConfigProvider, theme, App } from "antd";
+import { createContext, useContext, useState, useEffect } from "react";
 import type { ReactNode } from "react";
 
 interface ThemeContextValue {
@@ -24,10 +24,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY, isDark ? "dark" : "light");
-    document.documentElement.setAttribute(
-      "data-theme",
-      isDark ? "dark" : "light",
-    );
+    document.documentElement.setAttribute("data-theme", isDark ? "dark" : "light");
   }, [isDark]);
 
   const toggle = () => setIsDark((prev) => !prev);

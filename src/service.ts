@@ -6,11 +6,7 @@ export const SYSTEMD_UNIT_NAME = "3router.service";
 /**
  * Generate launchd plist XML content.
  */
-export function generatePlistContent(
-  bunPath: string,
-  serverPath: string,
-  logsDir: string,
-): string {
+export function generatePlistContent(bunPath: string, serverPath: string, logsDir: string): string {
   return `<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
@@ -46,10 +42,7 @@ export function generatePlistContent(
 /**
  * Generate systemd user unit file content.
  */
-export function generateSystemdUnitContent(
-  bunPath: string,
-  serverPath: string,
-): string {
+export function generateSystemdUnitContent(bunPath: string, serverPath: string): string {
   return `[Unit]
 Description=3router API proxy
 

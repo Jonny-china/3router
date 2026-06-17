@@ -1,16 +1,16 @@
-import { useState } from "react";
-import { Routes, Route, Navigate, useLocation, useNavigate } from "react-router-dom";
-import { Layout, Menu, Button, theme } from "antd";
 import {
   CloudUploadOutlined,
   BranchesOutlined,
   SunOutlined,
   MoonOutlined,
 } from "@ant-design/icons";
+import { Layout, Menu, Button, theme } from "antd";
+import { useState } from "react";
+import { Routes, Route, Navigate, useLocation, useNavigate } from "react-router-dom";
 
-import { useTheme } from "./theme";
 import Rules from "./pages/Rules";
 import Upstreams from "./pages/Upstreams";
+import { useTheme } from "./theme";
 
 import "./App.css";
 
