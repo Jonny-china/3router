@@ -14,6 +14,22 @@
 - **流式透传** — 原生支持 SSE 流式响应，不阻塞 Claude Code 的实时输出
 - **图片上下文保留** — 智能缓存图片内容，避免多轮对话丢失视觉上下文
 
+## npm 全局安装
+
+```bash
+npm install -g 3router
+```
+
+首次运行会自动在 `~/.3router/` 初始化配置文件：
+
+```bash
+3router            # 启动代理（首次运行自动生成 ~/.3router/config.json）
+```
+
+编辑 `~/.3router/config.json` 填入上游 API 密钥，然后在 Claude Code 中设置 `ANTHROPIC_BASE_URL=http://localhost:9191`。
+
+> 💡 可用 `THREEROUTER_HOME` 环境变量自定义配置目录；开机自启见 [系统服务](#系统服务守护进程)。
+
 ## 快速开始
 
 只需 Node.js `>= 20`，无需 Bun。
