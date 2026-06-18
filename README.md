@@ -16,20 +16,37 @@
 
 ## 快速开始
 
+只需 Node.js `>= 20`，无需 Bun。
+
 ```bash
 pnpm install
 cp config.example.json config.json
 # 在 config.json 中填入你的 API 密钥
-bun run dev
+pnpm build        # 构建（产出 Node 兼容的 dist/）
+pnpm start        # 用 Node 启动生产服务
 ```
 
 在 Claude Code 配置中设置 `ANTHROPIC_BASE_URL=http://localhost:9191`。
 
+> 已安装 Bun？开发期可直接 `bun run dev` 免构建热重载，详见 [开发](#开发)。
+
 ## 开发
 
+**方式 A：Bun**（推荐，免构建热重载）
+
 ```bash
-# 终端 1：后端
+# 终端 1：后端热重载（直接跑 .ts）
 bun run dev
+
+# 终端 2：前端
+cd web && pnpm dev
+```
+
+**方式 B：纯 Node**（无需安装 Bun）
+
+```bash
+# 终端 1：构建后用 Node 启动（改后端代码需重新 build）
+pnpm build && pnpm start
 
 # 终端 2：前端
 cd web && pnpm dev
@@ -57,10 +74,10 @@ pnpm start
 
 | 命令 | 说明 |
 |------|------|
-| `pnpm dev` | 启动后端并监听文件变更 |
+| `pnpm dev` | 启动后端并监听文件变更（需 Bun） |
 | `pnpm build` | 构建前端生产版本 |
 | `pnpm start` | 启动生产服务器 |
-| `pnpm test` | 运行所有测试 |
+| `pnpm test` | 运行所有测试（需 Bun） |
 | `pnpm lint` | 运行 oxlint |
 | `pnpm format` | 使用 oxfmt 格式化代码 |
 

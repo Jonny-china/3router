@@ -4,9 +4,9 @@
 
 ## 环境要求
 
-- [Node.js](https://nodejs.org/) `>= 20`（生产运行时）
-- [Bun](https://bun.sh/)（用于 `dev` 实时监听与 `test` 测试套件）
-- [pnpm](https://pnpm.io/)（依赖管理与 Web 前端构建）
+- [Node.js](https://nodejs.org/) `>= 20` —— **唯一硬性依赖**。生产运行、npm 安装、CLI 守护进程均基于此
+- [pnpm](https://pnpm.io/) —— 依赖管理与 Web 前端构建
+- [Bun](https://bun.sh/) —— **可选**，仅用于：直接热重载 `.ts` 源码（`bun run dev`）与运行测试套件（`pnpm test`）。未安装时，开发可走「构建 + Node 运行」路径
 
 ## 本地开发
 
@@ -20,17 +20,23 @@ cp config.example.json config.json   # 复制配置模板
 # 在 config.json 中填入你的 API 密钥（请勿提交真实密钥）
 ```
 
-启动开发：
+启动开发（任选其一）：
+
+**A. Bun** —— 免构建热重载（需安装 Bun）
 
 ```bash
-# 终端 1：后端（监听文件变更）
-bun run dev
-
-# 终端 2：前端（http://localhost:5173，将 /api 代理到后端）
-cd web && pnpm dev
+bun run dev            # 终端 1：后端
+cd web && pnpm dev     # 终端 2：前端
 ```
 
-在 Claude Code 中设置 `ANTHROPIC_BASE_URL=http://localhost:9191` 即可接入本地代理。
+**B. 纯 Node** —— 无需 Bun
+
+```bash
+pnpm build && pnpm start   # 终端 1：后端
+cd web && pnpm dev         # 终端 2：前端
+```
+
+前端 `http://localhost:5173` 会将 `/api` 代理到后端。在 Claude Code 中设置 `ANTHROPIC_BASE_URL=http://localhost:9191` 即可接入本地代理。
 
 ## 代码质量门禁
 
