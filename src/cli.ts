@@ -2,6 +2,7 @@ import { execSync } from "node:child_process";
 import { existsSync, mkdirSync, writeFileSync, rmSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 
 import { getBasePath, getConfigPath, readConfig, initConfig } from "./config";
 import {
@@ -12,14 +13,33 @@ import {
   isPortInUse,
   waitForPort,
 } from "./service";
+import { startServer } from "./server";
 
 const VERSION = "0.2.0";
 
 // --- Utility ---
 
-function getCliPath(): string {
-  // The service file invokes `bun run <cli.ts> serve`
-  return join(import.meta.dir, "cli.ts");
+interface RuntimeInfo {
+  name: "bun" | "node";
+  execPath: string;
+  cliEntry: string;
+}
+
+function detectRuntime(): RuntimeInfo {
+  const versions = (process as { versions?: { bun?: string } }).versions ?? {};
+  const name: "bun" | "node" = typeof versions.bun === "string" ? "bun" : "node";
+  return {
+    name,
+    execPath: process.execPath,
+    cliEntry: fileURLToPath(import.meta.url),
+  };
+}
+
+function buildRuntimeCommand(runtime: RuntimeInfo, action: string): string[] {
+  if (runtime.name === "bun") {
+    return [runtime.execPath, "run", runtime.cliEntry, action];
+  }
+  return [runtime.execPath, runtime.cliEntry, action];
 }
 
 function getLogsDir(): string {
@@ -32,15 +52,6 @@ function isMacOS(): boolean {
 
 function isLinux(): boolean {
   return process.platform === "linux";
-}
-
-function getBunPath(): string {
-  const result = execSync("which bun", { encoding: "utf-8" }).trim();
-  if (!result) {
-    console.error("错误: 找不到 bun 可执行文件。请确认 Bun 已安装并在 PATH 中。");
-    process.exit(1);
-  }
-  return result;
 }
 
 let cachedUid: string | undefined;
@@ -112,15 +123,13 @@ function getServiceState(): ServiceState {
 // --- Commands ---
 
 function commandServe(): void {
-  import("./server")
-    .then(({ startServer }) => {
-      console.log("3router 前台模式运行中...");
-      startServer();
-    })
-    .catch((err: unknown) => {
-      console.error("启动失败:", err instanceof Error ? err.message : String(err));
-      process.exit(1);
-    });
+  try {
+    console.log("3router 前台模式运行中...");
+    startServer();
+  } catch (err: unknown) {
+    console.error("启动失败:", err instanceof Error ? err.message : String(err));
+    process.exit(1);
+  }
 }
 
 function commandStart(): void {
@@ -166,17 +175,17 @@ function commandStart(): void {
     mkdirSync(getLogsDir(), { recursive: true });
 
     // Generate and write service file
-    const bunPath = getBunPath();
-    const serverPath = getCliPath();
+    const runtime = detectRuntime();
+    const serveCmd = buildRuntimeCommand(runtime, "serve");
 
     if (isMacOS()) {
-      const plistContent = generatePlistContent(bunPath, serverPath, getLogsDir());
+      const plistContent = generatePlistContent(serveCmd, getLogsDir());
       const plistPath = getPlistPath();
       mkdirSync(dirname(plistPath), { recursive: true });
       writeFileSync(plistPath, plistContent);
       console.log(`   Plist 已写入: ${plistPath}`);
     } else {
-      const unitContent = generateSystemdUnitContent(bunPath, serverPath);
+      const unitContent = generateSystemdUnitContent(serveCmd);
       const unitPath = getSystemdUnitPath();
       mkdirSync(dirname(unitPath), { recursive: true });
       writeFileSync(unitPath, unitContent);

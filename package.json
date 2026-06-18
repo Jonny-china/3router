@@ -8,29 +8,33 @@
   },
   "files": [
     "bin/",
-    "src/",
+    "dist/",
     "dist-web/",
     "config.example.json"
   ],
   "engines": {
-    "bun": ">=1.0"
+    "node": ">=20"
   },
   "scripts": {
     "dev": "bun run --watch src/cli.ts serve",
-    "build": "cd web && pnpm build && rm -rf ../dist-web && cp -r dist ../dist-web",
+    "typecheck": "tsc --noEmit",
+    "build:cli": "tsdown",
     "build:web": "cd web && pnpm build",
-    "build:copy": "rm -rf dist-web && cp -r web/dist dist-web",
-    "prepublishOnly": "npm run build",
-    "start": "bun run src/cli.ts serve",
+    "build:copy-web": "rm -rf dist-web && cp -r web/dist dist-web",
+    "build": "pnpm build:cli && pnpm build:web && pnpm build:copy-web",
+    "prepublishOnly": "npm run typecheck && npm run build",
+    "start": "node dist/cli.js serve",
     "test": "bun test",
     "lint": "oxlint src/ web/src/",
     "format": "oxfmt src/ web/src/",
     "format:check": "oxfmt --check src/ web/src/"
   },
   "devDependencies": {
+    "@types/node": "^22.0.0",
     "bun-types": "^1.3.14",
     "oxfmt": "^0.53.0",
     "oxlint": "^1.68.0",
+    "tsdown": "^0.22.3",
     "typescript": "^6.0.3"
   }
 }

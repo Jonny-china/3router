@@ -1,34 +1,62 @@
 #!/usr/bin/env node
 
 import { execFileSync } from "node:child_process";
-import { fileURLToPath } from "node:url";
+import { existsSync } from "node:fs";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 
-// Check if Bun is installed
-let bunPath;
-try {
-  bunPath = execFileSync("which", ["bun"], { encoding: "utf-8" }).trim();
-} catch {
-  console.error("Error: Bun runtime is required but not installed.");
-  console.error("");
-  console.error("Install Bun:");
-  console.error("  curl -fsSL https://bun.sh/install | bash");
-  console.error("");
-  console.error("Then try again:");
-  console.error("  3router " + process.argv.slice(2).join(" "));
-  process.exit(1);
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const distCli = path.join(__dirname, "..", "dist", "cli.js");
+const srcCli = path.join(__dirname, "..", "src", "cli.ts");
+const args = process.argv.slice(2);
+
+function which(cmd) {
+  try {
+    return execFileSync("which", [cmd], { encoding: "utf-8" }).trim();
+  } catch {
+    return null;
+  }
 }
 
-// Resolve path to src/cli.ts relative to this script
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const cliPath = path.join(__dirname, "..", "src", "cli.ts");
+const bunPath = which("bun");
 
-// Delegate to Bun
+let target;
+let runtimePath;
+let useBunRun = false;
+
+if (existsSync(distCli)) {
+  target = distCli;
+  if (bunPath) {
+    runtimePath = bunPath;
+    useBunRun = true;
+  } else {
+    runtimePath = process.execPath;
+  }
+} else {
+  if (!bunPath) {
+    console.error("Error: Bun runtime is required for development mode, but not installed.");
+    console.error("");
+    console.error("Install Bun:");
+    console.error("  curl -fsSL https://bun.sh/install | bash");
+    console.error("");
+    console.error("Or run a production build first:");
+    console.error("  pnpm build");
+    console.error("");
+    console.error("Then retry:");
+    console.error("  3router " + args.join(" "));
+    process.exit(1);
+  }
+  target = srcCli;
+  runtimePath = bunPath;
+  useBunRun = true;
+}
+
+const cmd = useBunRun
+  ? [runtimePath, "run", target, ...args]
+  : [runtimePath, target, ...args];
+
 try {
-  execFileSync(bunPath, ["run", cliPath, ...process.argv.slice(2)], {
-    stdio: "inherit",
-  });
+  execFileSync(cmd[0], cmd.slice(1), { stdio: "inherit" });
 } catch (err) {
-  // execFileSync throws on non-zero exit; the child already printed output
-  process.exit(err.status || 1);
+  process.exit(err.status ?? 1);
 }

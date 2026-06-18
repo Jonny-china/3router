@@ -3,10 +3,35 @@ import { createServer } from "node:net";
 export const LAUNCH_LABEL = "com.3router.daemon";
 export const SYSTEMD_UNIT_NAME = "3router.service";
 
+function escapeXml(value: string): string {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+/**
+ * Quote a single ExecStart argument per systemd quoting rules:
+ * - `%` is always doubled (systemd expands %-specifiers even inside quotes)
+ * - `\` becomes `\\` and `"` becomes `\"` inside double quotes
+ * - arguments containing whitespace, `"`, `\`, `%`, or empty strings get wrapped in `"..."`
+ */
+function escapeSystemdArg(arg: string): string {
+  const needsQuote = arg === "" || /[\s"\\%]/.test(arg);
+  const escaped = arg
+    .replace(/%/g, "%%")
+    .replace(/\\/g, "\\\\")
+    .replace(/"/g, '\\"');
+  return needsQuote ? `"${escaped}"` : escaped;
+}
+
 /**
  * Generate launchd plist XML content.
+ * command is a string array forming the full argv for the service.
  */
-export function generatePlistContent(bunPath: string, serverPath: string, logsDir: string): string {
+export function generatePlistContent(command: string[], logsDir: string): string {
+  const argv = command.map((arg) => `    <string>${escapeXml(arg)}</string>`).join("\n");
   return `<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
@@ -15,10 +40,7 @@ export function generatePlistContent(bunPath: string, serverPath: string, logsDi
   <string>${LAUNCH_LABEL}</string>
   <key>ProgramArguments</key>
   <array>
-    <string>${bunPath}</string>
-    <string>run</string>
-    <string>${serverPath}</string>
-    <string>serve</string>
+${argv}
   </array>
   <key>RunAtLoad</key>
   <true/>
@@ -27,13 +49,13 @@ export function generatePlistContent(bunPath: string, serverPath: string, logsDi
   <key>ThrottleInterval</key>
   <integer>1</integer>
   <key>StandardOutPath</key>
-  <string>${logsDir}/stdout.log</string>
+  <string>${escapeXml(logsDir)}/stdout.log</string>
   <key>StandardErrorPath</key>
-  <string>${logsDir}/stderr.log</string>
+  <string>${escapeXml(logsDir)}/stderr.log</string>
   <key>EnvironmentVariables</key>
   <dict>
     <key>HOME</key>
-    <string>${process.env.HOME}</string>
+    <string>${escapeXml(process.env.HOME ?? "")}</string>
   </dict>
 </dict>
 </plist>`;
@@ -41,14 +63,16 @@ export function generatePlistContent(bunPath: string, serverPath: string, logsDi
 
 /**
  * Generate systemd user unit file content.
+ * command is a string array forming the full argv for ExecStart.
  */
-export function generateSystemdUnitContent(bunPath: string, serverPath: string): string {
+export function generateSystemdUnitContent(command: string[]): string {
+  const execStart = command.map(escapeSystemdArg).join(" ");
   return `[Unit]
 Description=3router API proxy
 
 [Service]
 Type=simple
-ExecStart=${bunPath} run ${serverPath} serve
+ExecStart=${execStart}
 Restart=on-failure
 RestartSec=3
 

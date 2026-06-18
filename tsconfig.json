@@ -1,17 +1,16 @@
 {
   "compilerOptions": {
-    "target": "ESNext",
+    "target": "ES2023",
+    "lib": ["ES2023"],
     "module": "ESNext",
-    "moduleResolution": "bundler",
+    "moduleResolution": "Bundler",
     "strict": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
-    "outDir": "dist",
-    "rootDir": "src",
-    "types": ["bun-types"],
+    "types": ["node", "bun-types"],
     "resolveJsonModule": true,
-    "allowImportingTsExtensions": true,
-    "noEmit": true
+    "noEmit": true,
+    "isolatedModules": true
   },
   "include": ["src/**/*.ts"],
   "exclude": ["src/**/*.test.ts"]

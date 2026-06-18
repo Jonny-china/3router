@@ -7,6 +7,7 @@ node_modules/
 # Build output
 web/dist/
 dist-web/
+dist/
 
 # TypeScript
 *.tsbuildinfo
@@ -16,8 +17,8 @@ dist-web/
 .env.*
 !.env.example
 
-# Claude Code worktrees
-.claude/worktree/
+# Claude Code / Happy local state (worktrees, scheduled-task locks, etc.)
+.claude/
 
 # Vite
 web/.vite/

@@ -9,6 +9,7 @@ import {
 } from "node:fs";
 import { homedir } from "node:os";
 import { join, dirname } from "node:path";
+import { fileURLToPath } from "node:url";
 
 import type { Config } from "./types";
 
@@ -25,8 +26,8 @@ export function getConfigPath(): string {
 }
 
 function getExamplePath(): string {
-  // Resolved relative to this file: src/config.ts → package root
-  return join(dirname(import.meta.dir), "config.example.json");
+  // Resolved relative to this file: dist/config.js → package root
+  return join(dirname(dirname(fileURLToPath(import.meta.url))), "config.example.json");
 }
 
 export function readConfig(): Config {
