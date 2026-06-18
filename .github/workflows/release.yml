@@ -1,0 +1,49 @@
+name: Publish to npm
+
+# 当 GitHub Release 发布时，自动将包发布到 npm
+on:
+  release:
+    types: [published]
+
+jobs:
+  publish:
+    name: Publish to npm
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      - name: 校验 Release tag 与 package.json 版本一致
+        env:
+          TAG: ${{ github.event.release.tag_name }}
+        run: |
+          PKG_VERSION=$(node -p "require('./package.json').version")
+          echo "Release tag: $TAG"
+          echo "package.json version: v$PKG_VERSION"
+          if [ "v$PKG_VERSION" != "$TAG" ]; then
+            echo "::error::版本不匹配 — release tag ($TAG) 与 package.json (v$PKG_VERSION) 不一致"
+            exit 1
+          fi
+          echo "✓ 版本一致"
+
+      - name: 安装 pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: 配置 Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+          registry-url: https://registry.npmjs.org
+
+      - name: 安装依赖
+        run: pnpm install --frozen-lockfile
+
+      - name: 发布到 npm
+        # prepublishOnly 钩子会自动执行 typecheck + build（产出 dist/）
+        run: npm publish --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
