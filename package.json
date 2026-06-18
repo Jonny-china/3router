@@ -2,6 +2,7 @@
   "name": "3router",
   "version": "0.2.0",
   "private": false,
+  "license": "MIT",
   "type": "module",
   "bin": {
     "3router": "bin/3router"
