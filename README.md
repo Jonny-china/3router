@@ -28,32 +28,6 @@ pnpm start        # 用 Node 启动生产服务
 
 在 Claude Code 配置中设置 `ANTHROPIC_BASE_URL=http://localhost:9191`。
 
-> 已安装 Bun？开发期可直接 `bun run dev` 免构建热重载，详见 [开发](#开发)。
-
-## 开发
-
-**方式 A：Bun**（推荐，免构建热重载）
-
-```bash
-# 终端 1：后端热重载（直接跑 .ts）
-bun run dev
-
-# 终端 2：前端
-cd web && pnpm dev
-```
-
-**方式 B：纯 Node**（无需安装 Bun）
-
-```bash
-# 终端 1：构建后用 Node 启动（改后端代码需重新 build）
-pnpm build && pnpm start
-
-# 终端 2：前端
-cd web && pnpm dev
-```
-
-前端地址：http://localhost:5173（将 /api 代理到后端）
-
 ## 生产环境
 
 ```bash
@@ -69,17 +43,6 @@ pnpm start
 - **default**：其他所有消息（纯文本、助手消息）
 
 规则按优先级匹配（数字越小，优先级越高）。
-
-## 命令
-
-| 命令 | 说明 |
-|------|------|
-| `pnpm dev` | 启动后端并监听文件变更（需 Bun） |
-| `pnpm build` | 构建前端生产版本 |
-| `pnpm start` | 启动生产服务器 |
-| `pnpm test` | 运行所有测试（需 Bun） |
-| `pnpm lint` | 运行 oxlint |
-| `pnpm format` | 使用 oxfmt 格式化代码 |
 
 ## 系统服务（守护进程）
 
