@@ -7,23 +7,11 @@ import {
   rmSync,
   mkdirSync,
 } from "node:fs";
-import { homedir } from "node:os";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { getBasePath, getConfigPath } from "./paths";
 import type { Config } from "./types";
-
-/**
- * Returns the base directory for 3router configuration.
- * Override with THREEROUTER_HOME env var for testing.
- */
-export function getBasePath(): string {
-  return process.env.THREEROUTER_HOME || join(homedir(), ".3router");
-}
-
-export function getConfigPath(): string {
-  return join(getBasePath(), "config.json");
-}
 
 function getExamplePath(): string {
   // Resolved relative to this file: dist/config.js → package root

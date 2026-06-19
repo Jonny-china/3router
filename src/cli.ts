@@ -4,7 +4,8 @@ import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { getBasePath, getConfigPath, readConfig, initConfig } from "./config";
+import { readConfig, initConfig } from "./config";
+import { getLogsDir, getConfigPath } from "./paths";
 import {
   LAUNCH_LABEL,
   SYSTEMD_UNIT_NAME,
@@ -40,10 +41,6 @@ function buildRuntimeCommand(runtime: RuntimeInfo, action: string): string[] {
     return [runtime.execPath, "run", runtime.cliEntry, action];
   }
   return [runtime.execPath, runtime.cliEntry, action];
-}
-
-function getLogsDir(): string {
-  return join(getBasePath(), "logs");
 }
 
 function isMacOS(): boolean {

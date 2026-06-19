@@ -148,13 +148,13 @@ describe("initConfig", () => {
 
 describe("getBasePath", () => {
   it("returns THREEROUTER_HOME when set", async () => {
-    const { getBasePath } = await import("./config");
+    const { getBasePath } = await import("./paths");
     expect(getBasePath()).toBe(testDir);
   });
 
   it("returns ~/.3router when THREEROUTER_HOME is not set", async () => {
     delete process.env.THREEROUTER_HOME;
-    const { getBasePath } = await import("./config");
+    const { getBasePath } = await import("./paths");
     expect(getBasePath()).toBe(join(homedir(), ".3router"));
   });
 });
