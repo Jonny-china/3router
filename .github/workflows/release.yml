@@ -1,16 +1,19 @@
 name: Publish to npm
 
-# 当 GitHub Release 发布时，自动将包发布到 npm
+# GitHub Release 发布时，通过 Trusted Publishers（OIDC）自动发布到 npm，无需 NPM_TOKEN
+# 前置：已在 npmjs.com 的 3router 包设置里配置 Trusted Publisher → GitHub Actions
 on:
   release:
     types: [published]
+
+permissions:
+  id-token: write   # OIDC：允许 GitHub 生成 OIDC token（trusted publishers 关键）
+  contents: read
 
 jobs:
   publish:
     name: Publish to npm
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
 
     steps:
       - name: 检出代码
@@ -35,15 +38,14 @@ jobs:
       - name: 配置 Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: '24'           # trusted publishers 要求 npm ≥ 11.5.1，Node 24 自带
           cache: pnpm
           registry-url: https://registry.npmjs.org
 
       - name: 安装依赖
         run: pnpm install --frozen-lockfile
 
-      - name: 发布到 npm
-        # prepublishOnly 钩子会自动执行 typecheck + build（产出 dist/）
+      - name: 发布到 npm（OIDC，无需 token）
+        # prepublishOnly 钩子自动执行 typecheck + build（tsdown 产出 dist/）
+        # 无需 NODE_AUTH_TOKEN —— npm CLI 自动用 OIDC 短期凭证
         run: npm publish --access public
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
