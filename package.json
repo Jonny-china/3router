@@ -38,6 +38,7 @@
   "engines": {
     "node": ">=20"
   },
+  "packageManager": "pnpm@10.33.0",
   "scripts": {
     "dev": "bun run --watch src/cli.ts serve",
     "typecheck": "tsc --noEmit",
