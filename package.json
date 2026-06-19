@@ -2,7 +2,29 @@
   "name": "3router",
   "version": "0.2.0",
   "private": false,
+  "description": "本地 Claude Code API 智能路由代理 —— 按消息内容将请求路由到不同上游/模型，支持规则引擎、多上游、系统守护进程与 Web 管理面板。",
+  "keywords": [
+    "claude-code",
+    "anthropic",
+    "api-proxy",
+    "llm",
+    "router",
+    "proxy",
+    "typescript"
+  ],
   "license": "MIT",
+  "author": {
+    "name": "Jonny Chen",
+    "url": "https://github.com/Jonny-china"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Jonny-china/3router.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Jonny-china/3router/issues"
+  },
+  "homepage": "https://github.com/Jonny-china/3router",
   "type": "module",
   "bin": {
     "3router": "bin/3router"
