@@ -1,14 +1,11 @@
-import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
-import { readFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
-import { join, dirname, extname } from "node:path";
+import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
-import { Readable } from "node:stream";
-import type { ReadableStream as NodeReadableStream } from "node:stream/web";
 
-import { handleApiRoute } from "./api";
 import { readConfig, initConfig, validateConfig } from "./config";
 import { buildProxyHandler } from "./proxy";
+import { handleApiRoute } from "./api";
+import { logger } from "./logger";
 
 const MIME_TYPES: Record<string, string> = {
   ".html": "text/html; charset=utf-8",
@@ -32,112 +29,16 @@ const MIME_TYPES: Record<string, string> = {
 };
 
 function mimeFor(filePath: string): string {
-  return MIME_TYPES[extname(filePath).toLowerCase()] ?? "application/octet-stream";
+  const ext = filePath.slice(filePath.lastIndexOf(".")).toLowerCase();
+  return MIME_TYPES[ext] ?? "application/octet-stream";
 }
 
-function packageRoot(): string {
-  return join(dirname(fileURLToPath(import.meta.url)), "..");
-}
-
+/** 前端构建产物目录（生产：包内 dist-web） */
 export function getWebDist(): string {
-  return join(packageRoot(), "dist-web");
+  return join(dirname(fileURLToPath(import.meta.url)), "..", "dist-web");
 }
 
-function incomingToRequest(req: IncomingMessage): Promise<Request> {
-  const host = req.headers.host ?? `localhost:${req.socket.localPort ?? 9191}`;
-  const url = `http://${host}${req.url ?? "/"}`;
-  const headers = new Headers();
-  for (const [key, value] of Object.entries(req.headers)) {
-    if (value === undefined) continue;
-    if (Array.isArray(value)) {
-      for (const v of value) headers.append(key, v);
-    } else {
-      headers.set(key, value);
-    }
-  }
-  const method = req.method ?? "GET";
-  if (method === "GET" || method === "HEAD") {
-    return Promise.resolve(new Request(url, { method, headers }));
-  }
-  const body = Readable.toWeb(req) as unknown as NodeReadableStream<Uint8Array>;
-  return Promise.resolve(
-    new Request(url, {
-      method,
-      headers,
-      body,
-      duplex: "half",
-    }),
-  );
-}
-
-async function sendResponse(res: ServerResponse, response: Response): Promise<void> {
-  res.statusCode = response.status;
-  response.headers.forEach((value, key) => res.setHeader(key, value));
-  if (!response.body) {
-    res.end();
-    return;
-  }
-  await new Promise<void>((resolve, reject) => {
-    const body = response.body as unknown as NodeReadableStream<Uint8Array>;
-    const stream = Readable.fromWeb(body);
-    let settled = false;
-    const cleanup = (action: () => void) => {
-      if (settled) return;
-      settled = true;
-      action();
-    };
-    stream.on("error", (err) =>
-      cleanup(() => {
-        stream.destroy();
-        if (!res.writableEnded) res.destroy();
-        reject(err);
-      }),
-    );
-    res.on("error", (err) =>
-      cleanup(() => {
-        stream.destroy();
-        reject(err);
-      }),
-    );
-    res.on("close", () =>
-      cleanup(() => {
-        stream.destroy();
-        resolve();
-      }),
-    );
-    res.on("finish", () => cleanup(() => resolve()));
-    stream.pipe(res);
-  });
-}
-
-export async function handleWebRequest(
-  req: IncomingMessage,
-  res: ServerResponse,
-): Promise<void> {
-  try {
-    const request = await incomingToRequest(req);
-    const url = new URL(request.url);
-    let response: Response;
-
-    if (url.pathname.startsWith("/api/")) {
-      response = await handleApiRoute(request);
-    } else if (url.pathname.startsWith("/v1/")) {
-      response = await buildProxyHandler()(request);
-    } else {
-      response = await serveStatic(url.pathname);
-    }
-
-    await sendResponse(res, response);
-  } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    console.error(`[请求错误] ${message}`);
-    if (!res.headersSent) {
-      res.statusCode = 500;
-      res.end(JSON.stringify({ error: message }));
-    }
-  }
-}
-
+/** 静态文件服务 + SPA fallback。webDist 不存在时重定向到 vite dev server。 */
 export async function serveStatic(
   pathname: string,
   webDist: string = getWebDist(),
@@ -147,42 +48,50 @@ export async function serveStatic(
   }
   const requested = pathname === "/" ? "index.html" : pathname.slice(1);
   const filePath = join(webDist, requested);
+  if (!filePath.startsWith(webDist + "/")) return new Response("禁止访问", { status: 403 });
 
-  if (!filePath.startsWith(webDist + "/")) {
-    return new Response("禁止访问", { status: 403 });
+  const file = Bun.file(filePath);
+  if (await file.exists()) {
+    return new Response(file, { headers: { "content-type": mimeFor(filePath) } });
   }
+  // SPA fallback
+  const index = Bun.file(join(webDist, "index.html"));
+  return (await index.exists())
+    ? new Response(index, { headers: { "content-type": "text/html; charset=utf-8" } })
+    : new Response("Not Found", { status: 404 });
+}
 
+/** 路由分发：/v1/ → 代理上游，/api/ → 管理 API，其余 → 静态资源 */
+export async function handleFetch(req: Request): Promise<Response> {
+  const url = new URL(req.url);
   try {
-    const buffer = await readFile(filePath);
-    return new Response(buffer, {
-      headers: { "content-type": mimeFor(filePath) },
+    if (url.pathname.startsWith("/v1/")) return await buildProxyHandler()(req);
+    if (url.pathname.startsWith("/api/")) return await handleApiRoute(req);
+    return await serveStatic(url.pathname);
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    logger.error("请求错误", { path: url.pathname, error: msg });
+    return new Response(JSON.stringify({ error: msg }), {
+      status: 500,
+      headers: { "content-type": "application/json" },
     });
-  } catch {
-    // SPA fallback
-    try {
-      const indexBuffer = await readFile(join(webDist, "index.html"));
-      return new Response(indexBuffer, {
-        headers: { "content-type": "text/html; charset=utf-8" },
-      });
-    } catch {
-      return new Response("Not Found", { status: 404 });
-    }
   }
 }
 
 export function startServer(): void {
-  if (initConfig()) {
-    console.log("📝 已从模板创建默认配置 — 请编辑配置文件中填入你的 API Key。");
-  }
+  if (initConfig()) logger.info("已从模板创建默认配置");
   const config = readConfig();
   validateConfig(config);
 
-  const server = createServer((req, res) => {
-    void handleWebRequest(req, res);
+  Bun.serve({
+    port: config.port,
+    hostname: "0.0.0.0",
+    fetch: handleFetch,
   });
 
-  server.listen(config.port, () => {
-    console.log(`🚀 3router listening on http://localhost:${config.port}`);
-    console.log(`   ${config.upstreams.length} 个上游服务，${config.rules.length} 条规则`);
+  logger.info("3router 启动", {
+    port: config.port,
+    upstreams: config.upstreams.length,
+    rules: config.rules.length,
   });
 }
