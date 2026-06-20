@@ -41,6 +41,12 @@ function detectRuntime(): RuntimeInfo {
 }
 
 function buildRuntimeCommand(runtime: RuntimeInfo, action: string): string[] {
+  // 编译二进制（bun build --compile）：入口即自身可执行文件，直接执行即可，无 run 子命令。
+  // 编译后 import.meta.url 为 "$bunfs/..." 虚拟路径，既无法用 bun/node run 重新加载，
+  // 也无法作为 argv 命令解析。靠 $bunfs 标志识别编译态。
+  if (runtime.cliEntry.includes("$bunfs")) {
+    return [runtime.execPath, action];
+  }
   if (runtime.name === "bun") {
     return [runtime.execPath, "run", runtime.cliEntry, action];
   }
