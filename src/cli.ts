@@ -275,8 +275,10 @@ function registerAndStartService(): void {
   if (isMacOS()) {
     const uid = getUid();
     const plistPath = getPlistPath();
+    // bootstrap 加载 plist，RunAtLoad=true 使 launchd 立即拉起进程，无需再 kickstart。
+    // 首次注册时进程尚未运行，kickstart 会触发一次 kill→重启，端口抖动导致
+    // verifyStartup 的 waitForPort 在 15s 窗口内误判超时（进程实际已健康启动）。
     execSync(`launchctl bootstrap gui/${uid} ${plistPath}`, { stdio: "inherit" });
-    execSync(`launchctl kickstart gui/${uid}/${LAUNCH_LABEL}`, { stdio: "inherit" });
   } else {
     execSync("systemctl --user daemon-reload", { stdio: "inherit" });
     execSync("systemctl --user enable 3router", { stdio: "inherit" });

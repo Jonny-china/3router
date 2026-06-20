@@ -88,7 +88,9 @@ export function isPortInUse(port: number): Promise<boolean> {
     server.once("listening", () => {
       server.close(() => resolve(false));
     });
-    server.listen(port);
+    // 显式 IPv4：与 Bun.serve 的 hostname "0.0.0.0" 对齐。默认 listen(port) 绑 IPv6 :: (dual-stack)，
+    // 与 IPv4 监听者不冲突会误判端口空闲，导致 verifyStartup 的 waitForPort 永远等不到 true 而超时。
+    server.listen(port, "0.0.0.0");
   });
 }
 
