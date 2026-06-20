@@ -6,6 +6,7 @@ import { fileURLToPath } from "node:url";
 
 import { readConfig, initConfig } from "./config";
 import { getLogsDir, getConfigPath } from "./paths";
+import { logger } from "./logger";
 import {
   LAUNCH_LABEL,
   SYSTEMD_UNIT_NAME,
@@ -121,10 +122,10 @@ function getServiceState(): ServiceState {
 
 function commandServe(): void {
   try {
-    console.log("3router 前台模式运行中...");
+    logger.info("3router 前台模式运行中...");
     startServer();
   } catch (err: unknown) {
-    console.error("启动失败:", err instanceof Error ? err.message : String(err));
+    logger.error(`启动失败: ${err instanceof Error ? err.message : String(err)}`);
     process.exit(1);
   }
 }
@@ -133,7 +134,7 @@ function commandStart(): void {
   // Idempotency: already running
   const state = getServiceState();
   if (state.running) {
-    console.log(`3router is already running (PID ${state.pid || "unknown"})`);
+    logger.info(`3router is already running (PID ${state.pid || "unknown"})`);
     return;
   }
 
@@ -144,7 +145,7 @@ function commandStart(): void {
       const config = readConfig();
       const portBusy = await isPortInUse(config.port);
       if (portBusy) {
-        console.error(`错误: 端口 ${config.port} 已被占用，请释放端口后重试`);
+        logger.error(`错误: 端口 ${config.port} 已被占用，请释放端口后重试`);
         process.exit(1);
       }
     } catch {
@@ -153,19 +154,19 @@ function commandStart(): void {
 
     // Idempotency: installed but not running — just start
     if (isServiceRegistered()) {
-      console.log("3router 服务已安装但未运行，正在启动...");
+      logger.info("3router 服务已安装但未运行，正在启动...");
       startService();
       verifyStartup();
       return;
     }
 
     // Fresh install: generate service file, register, start
-    console.log("正在安装 3router daemon...");
+    logger.info("正在安装 3router daemon...");
 
     // Initialize config if needed
     if (initConfig()) {
-      console.log(`📝 配置已初始化: ${getConfigPath()}`);
-      console.log("   请编辑配置文件以添加你的 API Key。");
+      logger.info(`📝 配置已初始化: ${getConfigPath()}`);
+      logger.info("   请编辑配置文件以添加你的 API Key。");
     }
 
     // Create logs directory
@@ -180,13 +181,13 @@ function commandStart(): void {
       const plistPath = getPlistPath();
       mkdirSync(dirname(plistPath), { recursive: true });
       writeFileSync(plistPath, plistContent);
-      console.log(`   Plist 已写入: ${plistPath}`);
+      logger.info(`   Plist 已写入: ${plistPath}`);
     } else {
       const unitContent = generateSystemdUnitContent(serveCmd);
       const unitPath = getSystemdUnitPath();
       mkdirSync(dirname(unitPath), { recursive: true });
       writeFileSync(unitPath, unitContent);
-      console.log(`   Unit 已写入: ${unitPath}`);
+      logger.info(`   Unit 已写入: ${unitPath}`);
     }
 
     // Register and start
@@ -199,11 +200,11 @@ function commandStop(): void {
   // Idempotency: not running and not installed
   const state = getServiceState();
   if (!state.running && !isServiceRegistered()) {
-    console.log("3router is not running");
+    logger.info("3router is not running");
     return;
   }
 
-  console.log("正在停止 3router daemon...");
+  logger.info("正在停止 3router daemon...");
 
   if (isMacOS()) {
     const uid = getUid();
@@ -215,7 +216,7 @@ function commandStop(): void {
     const plistPath = getPlistPath();
     if (existsSync(plistPath)) {
       rmSync(plistPath);
-      console.log(`   已删除: ${plistPath}`);
+      logger.info(`   已删除: ${plistPath}`);
     }
   } else {
     try {
@@ -232,31 +233,31 @@ function commandStop(): void {
     if (existsSync(unitPath)) {
       rmSync(unitPath);
       execSync("systemctl --user daemon-reload", { stdio: "inherit" });
-      console.log(`   已删除: ${unitPath}`);
+      logger.info(`   已删除: ${unitPath}`);
     }
   }
 
-  console.log("✅ 3router daemon 已停止");
+  logger.info("✅ 3router daemon 已停止");
 }
 
 function commandStatus(): void {
-  console.log(`3router v${VERSION}`);
+  logger.info(`3router v${VERSION}`);
 
   const state = getServiceState();
   if (state.running) {
-    console.log(`Status: running (PID ${state.pid || "unknown"})`);
+    logger.info(`Status: running (PID ${state.pid || "unknown"})`);
 
     try {
       const config = readConfig();
-      console.log(`Port:   ${config.port}`);
+      logger.info(`Port:   ${config.port}`);
     } catch {
       // Config may not be readable
     }
   } else {
-    console.log("Status: stopped");
+    logger.info("Status: stopped");
   }
 
-  console.log(`Config: ${getConfigPath()}`);
+  logger.info(`Config: ${getConfigPath()}`);
 }
 
 // --- Service management helpers ---
@@ -289,22 +290,22 @@ function verifyStartup(): void {
     const config = readConfig();
     port = config.port;
   } catch {
-    console.error("错误: 无法读取配置文件，跳过启动验证");
+    logger.error("错误: 无法读取配置文件，跳过启动验证");
     return;
   }
 
-  console.log("正在验证服务启动...");
+  logger.info("正在验证服务启动...");
   waitForPort(port, 15000)
     .then(() => {
-      console.log(`✅ 3router daemon 已启动，端口: ${port}`);
+      logger.info(`✅ 3router daemon 已启动，端口: ${port}`);
     })
     .catch((err: Error) => {
-      console.error(`❌ ${err.message}`);
-      console.error("   请检查日志:");
+      logger.error(`❌ ${err.message}`);
+      logger.error("   请检查日志:");
       if (isMacOS()) {
-        console.error(`   cat ${getLogsDir()}/stderr.log`);
+        logger.error(`   cat ${getLogsDir()}/stderr.log`);
       } else {
-        console.error("   journalctl --user -u 3router -n 20");
+        logger.error("   journalctl --user -u 3router -n 20");
       }
       process.exit(1);
     });
@@ -316,7 +317,7 @@ const args = process.argv.slice(2);
 const command = args[0] || "serve";
 
 if ((command === "start" || command === "stop") && !isMacOS() && !isLinux()) {
-  console.error("错误: daemon 模式仅支持 macOS 和 Linux");
+  logger.error("错误: daemon 模式仅支持 macOS 和 Linux");
   process.exit(1);
 }
 
@@ -334,7 +335,7 @@ switch (command) {
     commandStatus();
     break;
   default:
-    console.error(`未知命令: ${command}`);
-    console.error(`可用命令: serve, start, stop, status`);
+    logger.error(`未知命令: ${command}`);
+    logger.error(`可用命令: serve, start, stop, status`);
     process.exit(1);
 }
