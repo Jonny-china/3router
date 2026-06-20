@@ -1,6 +1,6 @@
 {
   "name": "3router",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "private": false,
   "description": "本地 Claude Code API 智能路由代理 —— 按消息内容将请求路由到不同上游/模型，支持规则引擎、多上游、系统守护进程与 Web 管理面板。",
   "keywords": [
@@ -53,11 +53,11 @@
     "format:check": "oxfmt --check src/ web/src/"
   },
   "optionalDependencies": {
-    "@3router/darwin-arm64": "0.2.2",
-    "@3router/darwin-x64": "0.2.2",
-    "@3router/linux-x64": "0.2.2",
-    "@3router/linux-arm64": "0.2.2",
-    "@3router/win32-x64": "0.2.2"
+    "@3router/darwin-arm64": "0.2.3",
+    "@3router/darwin-x64": "0.2.3",
+    "@3router/linux-x64": "0.2.3",
+    "@3router/linux-arm64": "0.2.3",
+    "@3router/win32-x64": "0.2.3"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
