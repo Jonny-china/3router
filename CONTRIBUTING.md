@@ -4,9 +4,9 @@
 
 ## 环境要求
 
-- [Node.js](https://nodejs.org/) `>= 20` —— **唯一硬性依赖**。生产运行、npm 安装、CLI 守护进程均基于此
+- [Bun](https://bun.sh/) —— **开发必需**：热重载源码（`bun run dev`）、运行测试（`bun test`）、编译二进制（`bun build --compile`）
 - [pnpm](https://pnpm.io/) —— 依赖管理与 Web 前端构建
-- [Bun](https://bun.sh/) —— **可选**，仅用于：直接热重载 `.ts` 源码（`bun run dev`）与运行测试套件（`pnpm test`）。未安装时，开发可走「构建 + Node 运行」路径
+- [Node.js](https://nodejs.org/) `>= 20` —— 发布后的 shim 入口（`bin/3router`）与 CI OIDC 发布需要
 
 ## 本地开发
 
@@ -16,27 +16,32 @@ cd 3router
 pnpm install
 cd web && pnpm install && cd ..   # 安装前端依赖
 
-cp config.example.json config.json   # 复制配置模板
+cp config.example.json config.json   # 复制配置模板（首次）
 # 在 config.json 中填入你的 API 密钥（请勿提交真实密钥）
 ```
 
-启动开发（任选其一）：
-
-**A. Bun** —— 免构建热重载（需安装 Bun）
+启动开发（热重载）：
 
 ```bash
-bun run dev            # 终端 1：后端
-cd web && pnpm dev     # 终端 2：前端
+bun run dev            # 终端 1：后端（bun run --watch src/cli.ts serve）
+cd web && pnpm dev     # 终端 2：前端（vite，5173）
 ```
 
-**B. 纯 Node** —— 无需 Bun
+前端 `http://localhost:5173` 会将 `/api`、`/v1` 代理到后端。在 Claude Code 中设置 `ANTHROPIC_BASE_URL=http://localhost:9191` 即可接入本地代理。
+
+## 构建二进制
 
 ```bash
-pnpm build && pnpm start   # 终端 1：后端
-cd web && pnpm dev         # 终端 2：前端
+pnpm build        # 构建前端（单文件化）+ 编译当前平台二进制到 packages/<platform>/3router
 ```
 
-前端 `http://localhost:5173` 会将 `/api` 代理到后端。在 Claude Code 中设置 `ANTHROPIC_BASE_URL=http://localhost:9191` 即可接入本地代理。
+产出独立可执行文件（含 embed 的 config 模板 + 前端 SPA），可在无 Node/Bun 环境运行。详见 [packages/README.md](packages/README.md)。
+
+交叉编译指定平台：
+
+```bash
+bun run build:compile -- --target=bun-linux-x64
+```
 
 ## 代码质量门禁
 
@@ -102,18 +107,21 @@ docs: 补充守护进程部署示例
 
 ```
 3router/
-├── src/            # 后端（TypeScript）
-│   ├── cli.ts          # CLI 入口与守护进程命令
-│   ├── server.ts       # HTTP 服务器
-│   ├── proxy.ts        # 代理核心
-│   ├── router.ts       # 路由规则匹配
-│   ├── config.ts       # 配置加载
-│   ├── stream-parser.ts# SSE 流式解析
-│   ├── transform.ts    # 请求/响应转换
-│   └── image-cache.ts  # 图片上下文缓存
-├── web/            # 前端管理面板（React + Vite）
-├── bin/3router     # CLI 可执行入口
-└── docs/superpowers/  # 设计文档与实施计划
+├── src/                      # 后端（TypeScript，Bun.serve + consola 日志）
+│   ├── cli.ts                # CLI 入口与守护进程命令
+│   ├── server.ts             # Bun.serve HTTP 服务器 + 静态资源（embeddedFiles）
+│   ├── proxy.ts              # 代理核心 + 流式诊断埋点（stream.end）
+│   ├── router.ts             # 路由规则匹配
+│   ├── config.ts             # 配置加载（模板 import attribute embed）
+│   ├── logger.ts             # consola 日志 + 落盘轮转
+│   ├── paths.ts              # 路径解析（~/.3router）
+│   └── ...
+├── web/                      # 前端管理面板（React + Vite，单文件构建）
+├── bin/3router               # npm 入口 shim（定位平台子包二进制并 spawn）
+├── install.js                # postinstall 校验二进制
+├── scripts/build-compile.ts  # 多平台 --compile 编译脚本
+├── packages/                 # 平台子包（@3router/<platform>，各含一个二进制）
+└── docs/superpowers/         # 设计文档与实施计划
 ```
 
 再次感谢你的贡献！🎉

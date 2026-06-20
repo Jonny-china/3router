@@ -2,9 +2,12 @@ import { existsSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { embeddedFiles } from "bun";
+
 import { handleApiRoute } from "./api";
 import { readConfig, initConfig, validateConfig } from "./config";
 import { logger } from "./logger";
+import { getBasePath } from "./paths";
 import { buildProxyHandler } from "./proxy";
 
 const MIME_TYPES: Record<string, string> = {
@@ -33,16 +36,39 @@ function mimeFor(filePath: string): string {
   return MIME_TYPES[ext] ?? "application/octet-stream";
 }
 
-/** 前端构建产物目录（生产：包内 dist-web） */
+/**
+ * 前端构建产物目录探测（仅开发模式或外部 dist-web 时使用）：
+ * 环境变量 > 二进制旁 dist-web > ~/.3router/dist-web > 开发 src 旁 dist-web。
+ * 编译后的二进制优先用 embeddedFiles（见 serveStatic），不走此路径。
+ */
 export function getWebDist(): string {
+  if (process.env.THREEROUTER_WEB_DIST) return process.env.THREEROUTER_WEB_DIST;
+  const besideBin = join(dirname(process.execPath), "dist-web");
+  if (existsSync(besideBin)) return besideBin;
+  const homeDist = join(getBasePath(), "dist-web");
+  if (existsSync(homeDist)) return homeDist;
   return join(dirname(fileURLToPath(import.meta.url)), "..", "dist-web");
 }
 
-/** 静态文件服务 + SPA fallback。webDist 不存在时重定向到 vite dev server。 */
+/**
+ * 静态文件服务（Web 管理面板）。
+ * 优先从编译时 embed 的文件（embeddedFiles，单文件化后的 index.html）读取；
+ * 未 embed（开发模式）时回退到文件系统 dist-web，再回退到 vite dev server。
+ */
 export async function serveStatic(
   pathname: string,
   webDist: string = getWebDist(),
 ): Promise<Response> {
+  // 1. 编译时 embed：单文件化后的 index.html（SPA，所有路由都返回它）。
+  // bun-types 的 embeddedFiles 元素是 Blob，但运行时带 name（文件名），这里 cast。
+  const allEmbedded = embeddedFiles as unknown as Array<Blob & { name: string }>;
+  // embed 后 name 带路径前缀（如 "dist-web/index.html"），用 endsWith 匹配
+  const embedded = allEmbedded.find((f) => f.name.endsWith("index.html"));
+  if (embedded) {
+    return new Response(embedded, { headers: { "content-type": "text/html; charset=utf-8" } });
+  }
+
+  // 2. 开发模式：文件系统 dist-web
   if (!existsSync(webDist)) {
     return Response.redirect(`http://localhost:5173${pathname}`, 302);
   }

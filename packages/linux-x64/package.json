@@ -1,0 +1,21 @@
+{
+  "name": "@3router/linux-x64",
+  "version": "0.2.2",
+  "description": "3router 平台二进制 — linux-x64（由主包 3router 通过 optionalDependencies 自动安装，请勿单独安装）",
+  "license": "MIT",
+  "os": [
+    "linux"
+  ],
+  "cpu": [
+    "x64"
+  ],
+  "exports": {
+    ".": "./3router"
+  },
+  "files": [
+    "3router"
+  ],
+  "publishConfig": {
+    "access": "public"
+  }
+}

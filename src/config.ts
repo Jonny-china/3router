@@ -1,23 +1,12 @@
-import {
-  readFileSync,
-  writeFileSync,
-  renameSync,
-  existsSync,
-  copyFileSync,
-  rmSync,
-  mkdirSync,
-} from "node:fs";
-import { join, dirname } from "node:path";
-import { fileURLToPath } from "node:url";
+import { readFileSync, writeFileSync, renameSync, existsSync, rmSync, mkdirSync } from "node:fs";
 
+// 配置模板通过 import attribute（type: "file"）embed 进二进制：
+// 开发时为相对路径 "../config.example.json"，编译后为内部路径 "$bunfs/config.example.json"。
+// 运行时 readFileSync 都能正确读取（Bun 对 embed 文件兼容 node fs）。
+import exampleConfigPath from "../config.example.json" with { type: "file" };
 import { logger } from "./logger";
 import { getBasePath, getConfigPath } from "./paths";
 import type { Config } from "./types";
-
-function getExamplePath(): string {
-  // Resolved relative to this file: dist/config.js → package root
-  return join(dirname(dirname(fileURLToPath(import.meta.url))), "config.example.json");
-}
 
 export function readConfig(): Config {
   const raw = readFileSync(getConfigPath(), "utf-8");
@@ -90,11 +79,10 @@ export function initConfig(): boolean {
   }
 
   mkdirSync(basePath, { recursive: true });
-
-  const examplePath = getExamplePath();
-  if (!existsSync(examplePath)) {
-    throw new Error(`找不到配置模板文件: ${examplePath}`);
-  }
-  copyFileSync(examplePath, configPath);
+  // exampleConfigPath: embed 后从 $bunfs 读取模板内容，复制到用户配置目录。
+  // TS 因 resolveJsonModule 把它推断成 JSON 对象，但 import attribute type:"file"
+  // 在运行时返回的是文件路径字符串，这里 cast 回 string。
+  const content = readFileSync(exampleConfigPath as unknown as string, "utf-8");
+  writeFileSync(configPath, content);
   return true;
 }

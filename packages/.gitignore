@@ -1,0 +1,4 @@
+# 平台二进制由 bun build --compile 产出，不入库（CI 发布时构建）
+# 仅 package.json 入库，二进制运行时由子包提供
+**/3router
+**/3router.exe

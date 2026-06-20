@@ -1,44 +1,55 @@
-name: Publish to npm
+name: Build & Publish
 
-# GitHub Release 发布时，通过 Trusted Publishers（OIDC）自动发布到 npm，无需 NPM_TOKEN
-# 前置：已在 npmjs.com 的 3router 包设置里配置 Trusted Publisher → GitHub Actions
+# GitHub Release 发布时：
+#   1. 矩阵构建 5 平台 --compile 二进制（方案 B 分发）
+#   2. 上传 tar.gz / zip 到 GitHub Release
+#   3. 发布各平台子包 @3router/<platform> 到 npm（OIDC，无需 NPM_TOKEN）
+#   4. 发布主包 3router（含 shim + optionalDependencies）
+#
+# 前置（一次性）：
+#   - npm 创建 organization "3router"
+#   - 6 个包（3router + 5 个 @3router/*）在 npmjs.com 配置 Trusted Publisher
+#     → GitHub org: Jonny-china, repo: 3router, workflow filename: release.yml
 on:
   release:
     types: [published]
 
 permissions:
-  id-token: write   # OIDC：允许 GitHub 生成 OIDC token（trusted publishers 关键）
-  contents: write   # 回写版本号到 main
+  contents: write   # 上传 Release 资产 + 回写版本号到 main
+  id-token: write    # OIDC trusted publishers（npm 发布无需 token）
 
 jobs:
-  publish:
-    name: Publish to npm
+  build:
+    name: Build ${{ matrix.platform }}
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { target: bun-darwin-arm64, platform: darwin-arm64, bin: "3router", archive: tar.gz }
+          - { target: bun-darwin-x64, platform: darwin-x64, bin: "3router", archive: tar.gz }
+          - { target: bun-linux-x64, platform: linux-x64, bin: "3router", archive: tar.gz }
+          - { target: bun-linux-arm64, platform: linux-arm64, bin: "3router", archive: tar.gz }
+          - { target: bun-windows-x64, platform: win32-x64, bin: "3router.exe", archive: zip }
 
     steps:
       - name: 检出代码
         uses: actions/checkout@v4
 
-      - name: 从 Release tag 提取版本号并写回 package.json
+      - name: 从 Release tag 提取版本号
+        id: ver
         env:
           TAG: ${{ github.event.release.tag_name }}
         run: |
           VERSION="${TAG#v}"
           if ! echo "$VERSION" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?(\+[0-9A-Za-z.-]+)?$'; then
-            echo "::error::tag 格式非法: $TAG（应为 vX.Y.Z，如 v0.2.1）"
+            echo "::error::tag 格式非法: $TAG（应为 vX.Y.Z，如 v0.3.0）"
             exit 1
           fi
-          npm version "$VERSION" --no-git-tag-version --allow-same-version
-          if git diff --quiet package.json; then
-            echo "package.json 已是 v$VERSION，无需提交"
-          else
-            git config user.name "github-actions[bot]"
-            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git add package.json
-            git commit -m "chore: release ${VERSION} [skip ci]"
-            git push origin HEAD:main
-            echo "✓ 已将 version=$VERSION 提交回 main"
-          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: 安装 Bun
+        uses: oven-sh/setup-bun@v2
 
       - name: 安装 pnpm
         uses: pnpm/action-setup@v4
@@ -55,7 +66,87 @@ jobs:
           pnpm install --frozen-lockfile
           cd web && pnpm install --frozen-lockfile
 
-      - name: 发布到 npm（OIDC，无需 token）
-        # prepublishOnly 钩子自动执行 typecheck + build（tsdown 产出 dist/）
-        # 无需 NODE_AUTH_TOKEN —— npm CLI 自动用 OIDC 短期凭证
+      - name: 构建前端（单文件化）
+        run: pnpm build:web && pnpm build:copy-web
+
+      - name: 编译二进制（bun build --compile --target）
+        run: bun scripts/build-compile.ts --target=${{ matrix.target }}
+
+      - name: 写子包版本号
+        run: |
+          cd packages/${{ matrix.platform }}
+          npm version ${{ steps.ver.outputs.version }} --no-git-tag-version --allow-same-version
+
+      - name: 打包发布资产
+        run: |
+          cd packages/${{ matrix.platform }}
+          if [ "${{ matrix.archive }}" = "zip" ]; then
+            zip -r "../../3router-${{ matrix.platform }}.zip" "${{ matrix.bin }}"
+          else
+            tar -czf "../../3router-${{ matrix.platform }}.tar.gz" "${{ matrix.bin }}"
+          fi
+
+      - name: 上传到 GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            3router-${{ matrix.platform }}.tar.gz
+            3router-${{ matrix.platform }}.zip
+
+      - name: 发布平台子包到 npm（OIDC）
+        run: |
+          cd packages/${{ matrix.platform }}
+          npm publish --access public
+
+  publish-main:
+    name: Publish main package
+    needs: build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      - name: 从 Release tag 提取版本号
+        id: ver
+        env:
+          TAG: ${{ github.event.release.tag_name }}
+        run: |
+          VERSION="${TAG#v}"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: 安装 pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: 配置 Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: pnpm
+          registry-url: https://registry.npmjs.org
+
+      - name: 安装依赖（typecheck 需要）
+        run: pnpm install --frozen-lockfile
+
+      - name: 写主包版本号 + 同步 optionalDependencies 版本
+        env:
+          VERSION: ${{ steps.ver.outputs.version }}
+        run: |
+          npm version "$VERSION" --no-git-tag-version --allow-same-version
+          node -e "
+            const fs = require('fs');
+            const p = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+            for (const k of Object.keys(p.optionalDependencies || {})) p.optionalDependencies[k] = process.env.VERSION;
+            fs.writeFileSync('package.json', JSON.stringify(p, null, 2) + '\n');
+          "
+
+      - name: 回写版本号到 main
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add package.json
+          git commit -m "chore: release ${{ steps.ver.outputs.version }} [skip ci]"
+          git push origin HEAD:main
+
+      - name: 发布主包到 npm（OIDC，prepublishOnly 自动 typecheck）
         run: npm publish --access public
