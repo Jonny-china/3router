@@ -219,6 +219,47 @@ describe("buildProxyHandler", () => {
     const body = await res.json();
     expect(body.error.message).toContain("没有匹配的路由规则");
   });
+
+  it("转发上游成功响应（埋点 wrapStream 不破坏流）", async () => {
+    const cfg = {
+      port: 9191,
+      upstreams: [{ id: "up-1", name: "T", baseUrl: "https://api.test.com", apiKey: "k" }],
+      rules: [
+        {
+          id: "r-1",
+          name: "Default",
+          condition: "default",
+          upstreamId: "up-1",
+          model: "m",
+          priority: 999,
+          supportsImages: false,
+        },
+      ],
+    };
+    writeFileSync(join(testDir, "config.json"), JSON.stringify(cfg));
+
+    const originalFetch = global.fetch;
+    global.fetch = (() =>
+      Promise.resolve(
+        new Response("hello upstream", {
+          status: 200,
+          headers: { "content-type": "text/event-stream" },
+        }),
+      )) as typeof fetch;
+    try {
+      const { buildProxyHandler } = await import("./proxy");
+      const handler = buildProxyHandler();
+      const req = new Request("http://localhost:9191/v1/messages", {
+        method: "POST",
+        body: JSON.stringify({ model: "x", messages: [{ role: "user", content: "hi" }] }),
+      });
+      const res = await handler(req);
+      expect(res.status).toBe(200);
+      expect(await res.text()).toBe("hello upstream");
+    } finally {
+      global.fetch = originalFetch;
+    }
+  });
 });
 
 describe("proxy integration: message transform for text-only models", () => {
