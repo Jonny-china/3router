@@ -17,5 +17,10 @@
   ],
   "publishConfig": {
     "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Jonny-china/3router.git",
+    "directory": "packages/darwin-arm64"
   }
 }
