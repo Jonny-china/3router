@@ -1,9 +1,9 @@
 import * as config from "./config";
 import { hashImageBlock, storeImageSummary } from "./image-cache";
+import { logger, newRequestId } from "./logger";
 import { matchRule } from "./router";
 import { extractTextFromSSE, extractTextFromJsonResponse } from "./stream-parser";
 import { transformMessagesForTextModel } from "./transform";
-import { logger, newRequestId } from "./logger";
 import type { ContentBlock, Message, Upstream } from "./types";
 
 /**

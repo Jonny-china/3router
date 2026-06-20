@@ -5,8 +5,9 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { readConfig, initConfig } from "./config";
-import { getLogsDir, getConfigPath } from "./paths";
 import { logger } from "./logger";
+import { getLogsDir, getConfigPath } from "./paths";
+import { startServer } from "./server";
 import {
   LAUNCH_LABEL,
   SYSTEMD_UNIT_NAME,
@@ -15,7 +16,6 @@ import {
   isPortInUse,
   waitForPort,
 } from "./service";
-import { startServer } from "./server";
 
 const VERSION = "0.2.0";
 

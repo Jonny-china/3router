@@ -10,8 +10,8 @@ import {
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { getBasePath, getConfigPath } from "./paths";
 import { logger } from "./logger";
+import { getBasePath, getConfigPath } from "./paths";
 import type { Config } from "./types";
 
 function getExamplePath(): string {

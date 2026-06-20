@@ -19,10 +19,7 @@ function escapeXml(value: string): string {
  */
 function escapeSystemdArg(arg: string): string {
   const needsQuote = arg === "" || /[\s"\\%]/.test(arg);
-  const escaped = arg
-    .replace(/%/g, "%%")
-    .replace(/\\/g, "\\\\")
-    .replace(/"/g, '\\"');
+  const escaped = arg.replace(/%/g, "%%").replace(/\\/g, "\\\\").replace(/"/g, '\\"');
   return needsQuote ? `"${escaped}"` : escaped;
 }
 

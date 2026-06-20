@@ -2,10 +2,10 @@ import { existsSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { readConfig, initConfig, validateConfig } from "./config";
-import { buildProxyHandler } from "./proxy";
 import { handleApiRoute } from "./api";
+import { readConfig, initConfig, validateConfig } from "./config";
 import { logger } from "./logger";
+import { buildProxyHandler } from "./proxy";
 
 const MIME_TYPES: Record<string, string> = {
   ".html": "text/html; charset=utf-8",

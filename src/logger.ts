@@ -1,6 +1,15 @@
-import { consola } from "consola";
-import { appendFileSync, existsSync, mkdirSync, renameSync, statSync, writeFileSync } from "node:fs";
+import {
+  appendFileSync,
+  existsSync,
+  mkdirSync,
+  renameSync,
+  statSync,
+  writeFileSync,
+} from "node:fs";
 import { dirname } from "node:path";
+
+import { consola } from "consola";
+
 import { getLogsDir } from "./paths";
 
 const DEFAULT_MAX_SIZE = 10 * 1024 * 1024; // 10 MB

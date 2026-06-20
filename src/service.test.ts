@@ -74,9 +74,7 @@ describe("generateSystemdUnitContent", () => {
 
   it("includes ExecStart joined from argv (bun)", () => {
     const unit = generateSystemdUnitContent(BUN_CMD);
-    expect(unit).toContain(
-      "ExecStart=/usr/local/bin/bun run /opt/3router/dist/cli.js serve",
-    );
+    expect(unit).toContain("ExecStart=/usr/local/bin/bun run /opt/3router/dist/cli.js serve");
   });
 
   it("includes ExecStart joined from argv (node)", () => {
