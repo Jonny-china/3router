@@ -4,6 +4,9 @@ import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
+// 版本号单一来源：编译时经 import attribute（type:"json"）从 package.json 内联进二进制，
+// 避免硬编码与 package.json 脱钩（此前 cli.ts "0.2.0" ≠ package.json "0.2.1"）。
+import pkg from "../package.json" with { type: "json" };
 import { readConfig, initConfig } from "./config";
 import { logger } from "./logger";
 import { getLogsDir, getConfigPath } from "./paths";
@@ -17,7 +20,7 @@ import {
   waitForPort,
 } from "./service";
 
-const VERSION = "0.2.0";
+const VERSION = pkg.version;
 
 // --- Utility ---
 
