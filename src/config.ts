@@ -11,6 +11,7 @@ import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { getBasePath, getConfigPath } from "./paths";
+import { logger } from "./logger";
 import type { Config } from "./types";
 
 function getExamplePath(): string {
@@ -61,8 +62,10 @@ export async function updateConfig(transform: (config: Config) => Config): Promi
     const tmpPath = configPath + ".tmp";
     writeFileSync(tmpPath, JSON.stringify(newConfig, null, 2) + "\n");
     renameSync(tmpPath, configPath);
+    logger.info("配置已更新");
     return newConfig;
   } catch (err) {
+    logger.error("配置写入失败", { error: err instanceof Error ? err.message : String(err) });
     try {
       rmSync(getConfigPath() + ".tmp", { force: true });
     } catch {
