@@ -20,6 +20,8 @@ export interface Rule {
 
 export interface Config {
   port: number;
+  /** 监听地址，默认 127.0.0.1（仅本机）。填 0.0.0.0 暴露到所有网卡——远程访问需自行确保网络安全。 */
+  host?: string;
   upstreams: Upstream[];
   rules: Rule[];
 }

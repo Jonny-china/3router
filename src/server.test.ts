@@ -1,9 +1,10 @@
-import { describe, it, expect, beforeAll, afterAll } from "bun:test";
+import { describe, it, expect, beforeAll, afterAll, afterEach } from "bun:test";
 import { mkdtempSync, rmSync, writeFileSync, mkdirSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { handleFetch, serveStatic, getWebDist } from "./server";
+import { handleFetch, serveStatic, getWebDist, resolveHost } from "./server";
+import type { Config } from "./types";
 
 let testHome: string;
 let fakeWebDist: string;
@@ -146,5 +147,36 @@ describe("serveStatic against temp dist-web", () => {
 
   it("getWebDist points to dist-web under package root", () => {
     expect(getWebDist().endsWith("dist-web")).toBe(true);
+  });
+});
+
+describe("resolveHost", () => {
+  const originalEnvHost = process.env.THREEROUTER_HOST;
+  afterEach(() => {
+    if (originalEnvHost === undefined) delete process.env.THREEROUTER_HOST;
+    else process.env.THREEROUTER_HOST = originalEnvHost;
+  });
+
+  const baseConfig = {
+    port: 9191,
+    upstreams: [{ id: "u", name: "U", baseUrl: "https://x", apiKey: "k" }],
+    rules: [
+      { id: "r", name: "R", condition: "default" as const, upstreamId: "u", model: "m", priority: 1 },
+    ],
+  } as Config;
+
+  it("defaults to 127.0.0.1 when neither env nor config.host set", () => {
+    delete process.env.THREEROUTER_HOST;
+    expect(resolveHost(baseConfig)).toBe("127.0.0.1");
+  });
+
+  it("uses config.host when set and env not set", () => {
+    delete process.env.THREEROUTER_HOST;
+    expect(resolveHost({ ...baseConfig, host: "0.0.0.0" })).toBe("0.0.0.0");
+  });
+
+  it("env THREEROUTER_HOST overrides config.host", () => {
+    process.env.THREEROUTER_HOST = "192.168.1.5";
+    expect(resolveHost({ ...baseConfig, host: "0.0.0.0" })).toBe("192.168.1.5");
   });
 });

@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from "bun:test";
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, rmSync, writeFileSync, statSync } from "node:fs";
 import { tmpdir, homedir } from "node:os";
 import { join } from "node:path";
 
@@ -156,5 +156,31 @@ describe("getBasePath", () => {
     delete process.env.THREEROUTER_HOME;
     const { getBasePath } = await import("./paths");
     expect(getBasePath()).toBe(join(homedir(), ".3router"));
+  });
+});
+
+describe("config file permissions", () => {
+  it("initConfig writes config.json with mode 0o600", async () => {
+    const { initConfig } = await import("./config");
+    initConfig();
+    const mode = statSync(join(testDir, "config.json")).mode & 0o777;
+    expect(mode).toBe(0o600);
+  });
+
+  it("initConfig creates base directory with mode 0o700", async () => {
+    const nested = join(testDir, "nested", ".3router");
+    process.env.THREEROUTER_HOME = nested;
+    const { initConfig } = await import("./config");
+    initConfig();
+    const mode = statSync(nested).mode & 0o777;
+    expect(mode).toBe(0o700);
+  });
+
+  it("updateConfig writes config.json with mode 0o600", async () => {
+    writeConfigFile(validConfig);
+    const { updateConfig } = await import("./config");
+    await updateConfig(() => ({ ...validConfig, port: 9090 }));
+    const mode = statSync(join(testDir, "config.json")).mode & 0o777;
+    expect(mode).toBe(0o600);
   });
 });

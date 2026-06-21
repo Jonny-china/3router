@@ -49,7 +49,7 @@ export async function updateConfig(transform: (config: Config) => Config): Promi
     validateConfig(newConfig);
     const configPath = getConfigPath();
     const tmpPath = configPath + ".tmp";
-    writeFileSync(tmpPath, JSON.stringify(newConfig, null, 2) + "\n");
+    writeFileSync(tmpPath, JSON.stringify(newConfig, null, 2) + "\n", { mode: 0o600 });
     renameSync(tmpPath, configPath);
     logger.info("配置已更新");
     return newConfig;
@@ -78,11 +78,11 @@ export function initConfig(): boolean {
     return false;
   }
 
-  mkdirSync(basePath, { recursive: true });
+  mkdirSync(basePath, { recursive: true, mode: 0o700 });
   // exampleConfigPath: embed 后从 $bunfs 读取模板内容，复制到用户配置目录。
   // TS 因 resolveJsonModule 把它推断成 JSON 对象，但 import attribute type:"file"
   // 在运行时返回的是文件路径字符串，这里 cast 回 string。
   const content = readFileSync(exampleConfigPath as unknown as string, "utf-8");
-  writeFileSync(configPath, content);
+  writeFileSync(configPath, content, { mode: 0o600 });
   return true;
 }

@@ -9,6 +9,7 @@ import { readConfig, initConfig, validateConfig } from "./config";
 import { logger } from "./logger";
 import { getBasePath } from "./paths";
 import { buildProxyHandler } from "./proxy";
+import type { Config } from "./types";
 
 const MIME_TYPES: Record<string, string> = {
   ".html": "text/html; charset=utf-8",
@@ -104,19 +105,29 @@ export async function handleFetch(req: Request): Promise<Response> {
   }
 }
 
+/**
+ * 解析监听地址：环境变量 THREEROUTER_HOST > config.host > 127.0.0.1（默认仅本机）。
+ * 需要远程访问时显式填 0.0.0.0 或具体网卡 IP——此时请自行确保网络可达性与访问控制。
+ */
+export function resolveHost(config: Config): string {
+  return process.env.THREEROUTER_HOST ?? config.host ?? "127.0.0.1";
+}
+
 export function startServer(): void {
   if (initConfig()) logger.info("已从模板创建默认配置");
   const config = readConfig();
   validateConfig(config);
+  const host = resolveHost(config);
 
   Bun.serve({
     port: config.port,
-    hostname: "0.0.0.0",
+    hostname: host,
     fetch: handleFetch,
   });
 
   logger.info("3router 启动", {
     port: config.port,
+    host,
     upstreams: config.upstreams.length,
     rules: config.rules.length,
   });

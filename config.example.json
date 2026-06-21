@@ -1,5 +1,6 @@
 {
   "port": 9191,
+  "host": "127.0.0.1",
   "upstreams": [
     {
       "id": "anthropic-default",
