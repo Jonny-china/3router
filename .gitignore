@@ -17,8 +17,12 @@ dist/
 .env.*
 !.env.example
 
-# Claude Code / Happy local state (worktrees, scheduled-task locks, etc.)
-.claude/
+# Claude Code local runtime state
+# skills/ 等有价值的配置入库共享；仅排除运行时产物：
+#   worktrees/ —— git worktree 临时副本（含独立 .git，入库会污染主仓库）
+#   scheduled_tasks.lock —— 运行时锁文件
+.claude/worktrees/
+.claude/scheduled_tasks.lock
 
 # Vite
 web/.vite/
