@@ -1,6 +1,23 @@
-import type { ContentBlock } from "./types";
+import type { ContentBlock, Message } from "./types";
 
 const cache = new Map<string, string>();
+
+/**
+ * Collect all image content blocks across messages (in encounter order).
+ * Shared by transform.ts（替换为缓存描述）与 proxy.ts（hash 作缓存键），
+ * 消除两处逐字重复的遍历逻辑。router.ts 的 hasImage 是"仅最后一条 user 消息"的刻意窄化，不共用。
+ */
+export function collectImageBlocks(messages: Message[]): ContentBlock[] {
+  const blocks: ContentBlock[] = [];
+  for (const msg of messages) {
+    if (Array.isArray(msg.content)) {
+      for (const block of msg.content) {
+        if (block.type === "image") blocks.push(block);
+      }
+    }
+  }
+  return blocks;
+}
 
 /**
  * Compute SHA-256 hash of a content block for use as cache key.

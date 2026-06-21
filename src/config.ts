@@ -66,10 +66,6 @@ export async function updateConfig(transform: (config: Config) => Config): Promi
   }
 }
 
-export async function saveConfig(config: Config): Promise<void> {
-  await updateConfig(() => config);
-}
-
 export function initConfig(): boolean {
   const basePath = getBasePath();
   const configPath = getConfigPath();

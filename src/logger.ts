@@ -32,7 +32,8 @@ export function rotateIfNeeded(file: string, maxSize: number, maxFiles: number):
   for (let i = maxFiles - 1; i >= 1; i--) {
     const cur = `${file}.${i}`;
     const next = `${file}.${i + 1}`;
-    if (i + 1 > maxFiles) continue; // 超上限的旧文件直接丢弃
+    // i ∈ [1, maxFiles-1]，故 next ∈ [2, maxFiles] 恒不超上限，无需 continue 跳过；
+    // 最老的 .maxFiles 会在 i=maxFiles-1 时被 rename 覆盖即丢弃。
     if (existsSync(cur)) renameSync(cur, next);
   }
   renameSync(file, `${file}.1`);

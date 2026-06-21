@@ -106,12 +106,12 @@ describe("validateConfig", () => {
   });
 });
 
-describe("saveConfig", () => {
+describe("updateConfig", () => {
   it("writes config to config.json in THREEROUTER_HOME", async () => {
     writeConfigFile(validConfig);
-    const { saveConfig, readConfig } = await import("./config");
+    const { updateConfig, readConfig } = await import("./config");
     const config = { ...validConfig, port: 8080 };
-    await saveConfig(config);
+    await updateConfig(() => config);
     const loaded = readConfig();
     expect(loaded.port).toBe(8080);
     expect(loaded.upstreams).toHaveLength(1);

@@ -1,4 +1,4 @@
-import { hashImageBlock, getImageSummary } from "./image-cache";
+import { collectImageBlocks, hashImageBlock, getImageSummary } from "./image-cache";
 import type { Message, ContentBlock } from "./types";
 
 /**
@@ -11,20 +11,15 @@ import type { Message, ContentBlock } from "./types";
  */
 export async function transformMessagesForTextModel(messages: Message[]): Promise<Message[]> {
   // Phase 1: collect all image blocks and hash in parallel
-  const imageBlocks: ContentBlock[] = [];
-  for (const msg of messages) {
-    if (Array.isArray(msg.content)) {
-      for (const block of msg.content) {
-        if (block.type === "image") imageBlocks.push(block);
-      }
-    }
-  }
+  const imageBlocks = collectImageBlocks(messages);
   const hashes = await Promise.all(imageBlocks.map(hashImageBlock));
 
-  // Build a lookup from serialized block → cached summary
-  const summaryMap = new Map<string, string | undefined>();
+  // Build a lookup from block identity → cached summary.
+  // phase1 与 phase2 遍历同一 messages，block 是同一对象引用，用身份做键即可，
+  // 省掉 phase1/phase2 各一次 JSON.stringify（hashImageBlock 内那次仍保留，SHA-256 需要）。
+  const summaryMap = new Map<ContentBlock, string | undefined>();
   imageBlocks.forEach((block, i) => {
-    summaryMap.set(JSON.stringify(block), getImageSummary(hashes[i]));
+    summaryMap.set(block, getImageSummary(hashes[i]));
   });
 
   // Phase 2: build transformed messages using pre-computed summaryMap
@@ -38,7 +33,7 @@ export async function transformMessagesForTextModel(messages: Message[]): Promis
     const transformedContent: ContentBlock[] = [];
     for (const block of msg.content) {
       if (block.type === "image") {
-        const summary = summaryMap.get(JSON.stringify(block));
+        const summary = summaryMap.get(block);
         transformedContent.push(
           summary
             ? { type: "text", text: `[图片描述: ${summary}]` }

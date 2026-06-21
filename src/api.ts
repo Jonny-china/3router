@@ -1,5 +1,6 @@
 import { readConfig, updateConfig } from "./config";
-import type { Upstream, Rule } from "./types";
+import { logger } from "./logger";
+import type { Upstream, Rule, Config } from "./types";
 
 const ALLOWED_ORIGINS = ["http://localhost:5173", "http://localhost:9191"];
 
@@ -35,6 +36,28 @@ function extractId(url: string, prefix: string): string | null {
     new RegExp(`^${prefix.replace(/\//g, "\\/")}\\/([^/]+)$`),
   );
   return match?.[1] ?? null;
+}
+
+/**
+ * 按 id patch 一项配置（upstream 或 rule）。找不到时抛 NOT_FOUND，调用方映射为 404。
+ * 返回从写入后的 config 重新查到的更新项，避免 `let updated` + 非空断言的闭包变异传值。
+ */
+async function patchConfigItem<T extends { id: string }>(
+  select: (c: Config) => T[],
+  apply: (c: Config, items: T[]) => Config,
+  id: string,
+  patch: Partial<T>,
+): Promise<T> {
+  const newConfig = await updateConfig((config) => {
+    const items = select(config);
+    const index = items.findIndex((x) => x.id === id);
+    if (index === -1) throw new Error("NOT_FOUND");
+    const updated = { ...items[index], ...patch, id };
+    return apply(config, items.map((x) => (x.id === id ? updated : x)));
+  });
+  const found = select(newConfig).find((x) => x.id === id);
+  if (!found) throw new Error("NOT_FOUND"); // 刚写入却找不到，理论不应发生
+  return found;
 }
 
 export async function handleApiRoute(req: Request): Promise<Response> {
@@ -73,24 +96,20 @@ export async function handleApiRoute(req: Request): Promise<Response> {
       const id = extractId(req.url, "/api/upstreams");
       if (!id) return errorResponse("缺少上游服务 ID", req);
       const body = (await req.json()) as Partial<Upstream>;
-      let updated: Upstream | undefined;
       try {
-        await updateConfig((config) => {
-          const index = config.upstreams.findIndex((u) => u.id === id);
-          if (index === -1) throw new Error("NOT_FOUND");
-          updated = { ...config.upstreams[index], ...body, id };
-          return {
-            ...config,
-            upstreams: config.upstreams.map((u) => (u.id === id ? updated! : u)),
-          };
-        });
+        const updated = await patchConfigItem(
+          (c) => c.upstreams,
+          (c, items) => ({ ...c, upstreams: items }),
+          id,
+          body,
+        );
+        return jsonResponse(updated, req);
       } catch (err) {
         if (err instanceof Error && err.message === "NOT_FOUND") {
           return errorResponse("上游服务不存在", req, 404);
         }
         throw err;
       }
-      return jsonResponse(updated!, req);
     }
 
     // DELETE /api/upstreams/:id — delete
@@ -143,21 +162,20 @@ export async function handleApiRoute(req: Request): Promise<Response> {
       const id = extractId(req.url, "/api/rules");
       if (!id) return errorResponse("缺少规则 ID", req);
       const body = (await req.json()) as Partial<Rule>;
-      let updated: Rule | undefined;
       try {
-        await updateConfig((config) => {
-          const index = config.rules.findIndex((r) => r.id === id);
-          if (index === -1) throw new Error("NOT_FOUND");
-          updated = { ...config.rules[index], ...body, id };
-          return { ...config, rules: config.rules.map((r) => (r.id === id ? updated! : r)) };
-        });
+        const updated = await patchConfigItem(
+          (c) => c.rules,
+          (c, items) => ({ ...c, rules: items }),
+          id,
+          body,
+        );
+        return jsonResponse(updated, req);
       } catch (err) {
         if (err instanceof Error && err.message === "NOT_FOUND") {
           return errorResponse("规则不存在", req, 404);
         }
         throw err;
       }
-      return jsonResponse(updated!, req);
     }
 
     // DELETE /api/rules/:id — delete (must keep at least one default rule)
@@ -190,7 +208,9 @@ export async function handleApiRoute(req: Request): Promise<Response> {
     return errorResponse("接口不存在", req, 404);
   } catch (err) {
     const message = err instanceof Error ? err.message : "内部服务错误";
-    console.error(`[接口错误] ${message}`);
+    // 用 error 键而非 message：logger 输出 { ts, level, message: msg, ...obj }，
+    // obj 的键会展开覆盖顶层，若用 message 会覆盖 "接口错误" 标签。
+    logger.error("接口错误", { error: message, path, method: req.method });
     return errorResponse(message, req, 500);
   }
 }
