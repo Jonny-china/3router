@@ -15,6 +15,14 @@ import { getLogsDir } from "./paths";
 const DEFAULT_MAX_SIZE = 10 * 1024 * 1024; // 10 MB
 const DEFAULT_MAX_FILES = 5;
 
+// 控制台镜像：保留 consola 的彩色/标签输出（dev 友好），用类型安全映射替代字符串索引 cast。
+const consoleMirror: Record<"info" | "warn" | "error" | "debug", (msg: string) => void> = {
+  info: (msg) => consola.info(msg),
+  warn: (msg) => consola.warn(msg),
+  error: (msg) => consola.error(msg),
+  debug: (msg) => consola.debug(msg),
+};
+
 /**
  * 文件超过 maxSize 时滚动：当前 → .1，.1 → .2，…，超 maxFiles 的丢弃。
  * 滚动后重建空当前文件。
@@ -68,9 +76,8 @@ export function createLogger(opts: LoggerOptions): Logger {
     const line =
       JSON.stringify({ ts: new Date().toISOString(), level: lvl, message: msg, ...obj }) + "\n";
     appendFileSync(file, line);
-    // 同时输出控制台（dev 友好）
-    const fn = (consola as unknown as Record<string, ((m: string) => void) | undefined>)[lvl];
-    if (fn) fn(msg);
+    // 同时输出控制台（dev 友好）；类型安全映射替代脆弱的字符串索引 cast。
+    consoleMirror[lvl](msg);
   };
 
   return {

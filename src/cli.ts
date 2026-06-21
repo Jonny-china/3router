@@ -1,4 +1,3 @@
-import { execSync } from "node:child_process";
 import { existsSync, mkdirSync, writeFileSync, rmSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
@@ -10,6 +9,7 @@ import pkg from "../package.json" with { type: "json" };
 import { readConfig, initConfig } from "./config";
 import { logger } from "./logger";
 import { getLogsDir, getConfigPath } from "./paths";
+import { buildRuntimeCommand, type RuntimeInfo } from "./runtime";
 import { startServer } from "./server";
 import {
   LAUNCH_LABEL,
@@ -24,33 +24,28 @@ const VERSION = pkg.version;
 
 // --- Utility ---
 
-interface RuntimeInfo {
-  name: "bun" | "node";
-  execPath: string;
-  cliEntry: string;
-}
-
+// buildRuntimeCommand 与 RuntimeInfo 抽到 ./runtime 便于单测（cli.ts 是带副作用的入口脚本）。
 function detectRuntime(): RuntimeInfo {
-  const versions = (process as { versions?: { bun?: string } }).versions ?? {};
-  const name: "bun" | "node" = typeof versions.bun === "string" ? "bun" : "node";
+  // server.ts 硬依赖 Bun（Bun.serve / embeddedFiles），在 Node 下模块加载即失败，
+  // 故不再保留 node 兜底分支——运行时只可能是 Bun。
   return {
-    name,
     execPath: process.execPath,
     cliEntry: fileURLToPath(import.meta.url),
   };
 }
 
-function buildRuntimeCommand(runtime: RuntimeInfo, action: string): string[] {
-  // 编译二进制（bun build --compile）：入口即自身可执行文件，直接执行即可，无 run 子命令。
-  // 编译后 import.meta.url 为 "$bunfs/..." 虚拟路径，既无法用 bun/node run 重新加载，
-  // 也无法作为 argv 命令解析。靠 $bunfs 标志识别编译态。
-  if (runtime.cliEntry.includes("$bunfs")) {
-    return [runtime.execPath, action];
-  }
-  if (runtime.name === "bun") {
-    return [runtime.execPath, "run", runtime.cliEntry, action];
-  }
-  return [runtime.execPath, runtime.cliEntry, action];
+// --- Subprocess helpers (Bun-native, 数组 argv 不经 shell) ---
+
+/** 捕获 stdout、忽略 stderr；失败抛错（与原 execSync 行为一致，便于调用方 try/catch）。 */
+function captureOutput(cmd: string[]): string {
+  const result = Bun.spawnSync(cmd, { stdout: "pipe", stderr: "ignore" });
+  if (!result.success) throw new Error(`命令执行失败: ${cmd.join(" ")}`);
+  return (result.stdout?.toString() ?? "").trim();
+}
+
+/** 继承 stdio（用户可见输出）；不抛错（调用方静默容忍失败）。 */
+function runInherit(cmd: string[]): void {
+  Bun.spawnSync(cmd, { stdout: "inherit", stderr: "inherit" });
 }
 
 function isMacOS(): boolean {
@@ -64,7 +59,7 @@ function isLinux(): boolean {
 let cachedUid: string | undefined;
 function getUid(): string {
   if (!cachedUid) {
-    cachedUid = execSync("id -u", { encoding: "utf-8" }).trim();
+    cachedUid = captureOutput(["id", "-u"]);
   }
   return cachedUid;
 }
@@ -99,9 +94,7 @@ function isServiceRegistered(): boolean {
 function getServiceState(): ServiceState {
   if (isMacOS()) {
     try {
-      const output = execSync(`launchctl print gui/${getUid()}/${LAUNCH_LABEL} 2>/dev/null`, {
-        encoding: "utf-8",
-      });
+      const output = captureOutput(["launchctl", "print", `gui/${getUid()}/${LAUNCH_LABEL}`]);
       const match = output.match(/pid = (\d+)/);
       return { running: true, pid: match?.[1] ?? null };
     } catch {
@@ -110,15 +103,18 @@ function getServiceState(): ServiceState {
   }
   if (isLinux()) {
     try {
-      const active = execSync("systemctl --user is-active 3router 2>/dev/null", {
-        encoding: "utf-8",
-      }).trim();
+      const active = captureOutput(["systemctl", "--user", "is-active", "3router"]);
       if (active !== "active") {
         return { running: false, pid: null };
       }
-      const pid = execSync("systemctl --user show 3router --property=MainPID --value 2>/dev/null", {
-        encoding: "utf-8",
-      }).trim();
+      const pid = captureOutput([
+        "systemctl",
+        "--user",
+        "show",
+        "3router",
+        "--property=MainPID",
+        "--value",
+      ]);
       return { running: true, pid: pid && pid !== "0" ? pid : null };
     } catch {
       return { running: false, pid: null };
@@ -217,31 +213,19 @@ function commandStop(): void {
 
   if (isMacOS()) {
     const uid = getUid();
-    try {
-      execSync(`launchctl bootout gui/${uid}/${LAUNCH_LABEL}`, { stdio: "inherit" });
-    } catch {
-      // Service may already be unloaded
-    }
+    runInherit(["launchctl", "bootout", `gui/${uid}/${LAUNCH_LABEL}`]);
     const plistPath = getPlistPath();
     if (existsSync(plistPath)) {
       rmSync(plistPath);
       logger.info(`   已删除: ${plistPath}`);
     }
   } else {
-    try {
-      execSync("systemctl --user stop 3router", { stdio: "inherit" });
-    } catch {
-      // Service may already be stopped
-    }
-    try {
-      execSync("systemctl --user disable 3router", { stdio: "inherit" });
-    } catch {
-      // Best effort
-    }
+    runInherit(["systemctl", "--user", "stop", "3router"]);
+    runInherit(["systemctl", "--user", "disable", "3router"]);
     const unitPath = getSystemdUnitPath();
     if (existsSync(unitPath)) {
       rmSync(unitPath);
-      execSync("systemctl --user daemon-reload", { stdio: "inherit" });
+      runInherit(["systemctl", "--user", "daemon-reload"]);
       logger.info(`   已删除: ${unitPath}`);
     }
   }
@@ -278,20 +262,21 @@ function registerAndStartService(): void {
     // bootstrap 加载 plist，RunAtLoad=true 使 launchd 立即拉起进程，无需再 kickstart。
     // 首次注册时进程尚未运行，kickstart 会触发一次 kill→重启，端口抖动导致
     // verifyStartup 的 waitForPort 在 15s 窗口内误判超时（进程实际已健康启动）。
-    execSync(`launchctl bootstrap gui/${uid} ${plistPath}`, { stdio: "inherit" });
+    // 数组 argv 形态天然解决 plistPath 含空格时的路径转义问题。
+    runInherit(["launchctl", "bootstrap", `gui/${uid}`, plistPath]);
   } else {
-    execSync("systemctl --user daemon-reload", { stdio: "inherit" });
-    execSync("systemctl --user enable 3router", { stdio: "inherit" });
-    execSync("systemctl --user start 3router", { stdio: "inherit" });
+    runInherit(["systemctl", "--user", "daemon-reload"]);
+    runInherit(["systemctl", "--user", "enable", "3router"]);
+    runInherit(["systemctl", "--user", "start", "3router"]);
   }
 }
 
 function startService(): void {
   if (isMacOS()) {
     const uid = getUid();
-    execSync(`launchctl kickstart gui/${uid}/${LAUNCH_LABEL}`, { stdio: "inherit" });
+    runInherit(["launchctl", "kickstart", `gui/${uid}/${LAUNCH_LABEL}`]);
   } else {
-    execSync("systemctl --user start 3router", { stdio: "inherit" });
+    runInherit(["systemctl", "--user", "start", "3router"]);
   }
 }
 

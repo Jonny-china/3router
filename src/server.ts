@@ -1,6 +1,5 @@
 import { existsSync } from "node:fs";
 import { join, dirname } from "node:path";
-import { fileURLToPath } from "node:url";
 
 import { embeddedFiles } from "bun";
 
@@ -48,7 +47,7 @@ export function getWebDist(): string {
   if (existsSync(besideBin)) return besideBin;
   const homeDist = join(getBasePath(), "dist-web");
   if (existsSync(homeDist)) return homeDist;
-  return join(dirname(fileURLToPath(import.meta.url)), "..", "dist-web");
+  return join(import.meta.dir, "..", "dist-web");
 }
 
 /**
