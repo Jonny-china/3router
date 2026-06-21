@@ -69,6 +69,12 @@ jobs:
       - name: 构建前端（单文件化）
         run: pnpm build:web && pnpm build:copy-web
 
+      - name: 写主包版本号（编译前，确保 --compile 二进制内联正确版本）
+        # cli.ts 经 import attribute（type:"json"）把根 package.json 的 version
+        # 内联进二进制；必须在编译前写好目标版本，否则二进制会冻死上一 release 的版本号
+        # （见 references/known-pitfalls.md「编译先于根 version bump → 二进制内联旧版本号」）
+        run: npm version ${{ steps.ver.outputs.version }} --no-git-tag-version --allow-same-version
+
       - name: 编译二进制（bun build --compile --target）
         run: bun scripts/build-compile.ts --target=${{ matrix.target }}
 

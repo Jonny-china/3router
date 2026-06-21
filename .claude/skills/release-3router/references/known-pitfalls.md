@@ -57,6 +57,27 @@ expected to match "https://github.com/Jonny-china/3router" from provenance
 
 **历史**：0.2.3 commit `4549160` 修复。
 
+## 坑 4：编译先于根 version bump → 二进制内联旧版本号
+
+**症状**：发布 X.Y.Z 后，`npx 3router status`（或任意子命令）输出 `3router v<上一版本>`，但 npm 上包元数据是 X.Y.Z。`strings` 平台二进制可见内联的是旧版本字符串（实测 `@3router/darwin-arm64@0.2.3` 的二进制：6×`0.2.2`、0×`0.2.3`）。
+
+**根因**：`cli.ts` 经 import attribute（`import pkg from "../package.json" with { type: "json" }`）把**根** package.json 的 `version` 内联进 `--compile` 二进制，版本号在编译那一刻冻死。release.yml build job 原顺序是「先编译二进制 → 后写子包版本号」，而**根** package.json 的 version bump 在更后面的 publish-main job（`needs: build`）。build job 检出代码时，main 上根 package.json 还是上一 release commit 留下的旧版本号，编译出的二进制内联旧版本，之后才 bump + 发布。结果：npm 上 `@3router/<plat>@X.Y.Z` 的包元数据是新版本，里面二进制却报上一版本号。
+
+**为何本地没暴露**：本地预演 `bun scripts/build-compile.ts` 时，根 package.json 已是当前开发版本（与目标版本一致或已手动 bump），编译内联正确。CI 的「检出上一 release 的 package.json → 编译 → 后续才 bump」时序本地无法复现。
+
+**修复**：build job 在「编译二进制」**之前**加一步写根 package.json 版本号：
+```yaml
+- name: 写主包版本号（编译前，确保 --compile 二进制内联正确版本）
+  run: npm version ${{ steps.ver.outputs.version }} --no-git-tag-version --allow-same-version
+```
+矩阵 5 平台各跑一次是幂等的（`--allow-same-version`），无副作用。子包版本号写入（原步骤）与 publish-main 的根 bump 保留（后者此时为 no-op，双重保险）。
+
+**预检**：
+- release.yml build job「编译二进制」步骤之前有「写主包版本号」步骤。
+- 编译后验证内联版本：`strings packages/darwin-arm64/3router | rg -o '0\.[0-9]+\.[0-9]+' | sort -u` 应只含目标版本。
+
+**历史**：0.2.3 首次暴露——`@3router/darwin-arm64@0.2.3` 的二进制 strings 内联 6×`0.2.2`、0×`0.2.3`，而包元数据是 0.2.3。`npx 3router status` 恒报 v0.2.2（重装无效，二进制已定型）。
+
 ## 本地预演盲区（根本性认识）
 
 本地能验证的：依赖安装、前端构建、二进制编译、typecheck。
@@ -64,6 +85,7 @@ expected to match "https://github.com/Jonny-china/3router" from provenance
 - **npm publish provenance**：需 CI OIDC 环境与 npm 侧 trusted publisher 配置
 - **5 平台交叉编译**：本地只编当前平台（darwin-arm64），其余 4 平台靠 `bun build --compile --target` 交叉编译，CI 才跑
 - **OIDC trusted publisher 绑定**：npm 侧「包 ↔ GitHub repo/workflow」的绑定
+- **编译时序（version bump vs compile）**：本地根 package.json 已是目标版本，编译内联正确；CI 检出上一 release 的 package.json 再编译才暴露（坑 4）
 
 因此**本地预演全过 ≠ CI 必成功**。预检清单（尤其子包 repository、lockfile）是补盲区的手段。每次发版都要过清单，不能因为「上次成功」就跳过——新加的子包/新改的依赖可能引入新问题。
 
