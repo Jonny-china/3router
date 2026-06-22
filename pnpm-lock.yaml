@@ -29,45 +29,45 @@ importers:
         version: 6.0.3
     optionalDependencies:
       '@3router/darwin-arm64':
-        specifier: 0.2.3
-        version: 0.2.3
+        specifier: 0.2.4
+        version: 0.2.4
       '@3router/darwin-x64':
-        specifier: 0.2.3
-        version: 0.2.3
+        specifier: 0.2.4
+        version: 0.2.4
       '@3router/linux-arm64':
-        specifier: 0.2.3
-        version: 0.2.3
+        specifier: 0.2.4
+        version: 0.2.4
       '@3router/linux-x64':
-        specifier: 0.2.3
-        version: 0.2.3
+        specifier: 0.2.4
+        version: 0.2.4
       '@3router/win32-x64':
-        specifier: 0.2.3
-        version: 0.2.3
+        specifier: 0.2.4
+        version: 0.2.4
 
 packages:
 
-  '@3router/darwin-arm64@0.2.3':
-    resolution: {integrity: sha512-qI4uc/FLOI9pa8keO3D4C+la8/29eHvmOAOfTw5VzDwzgVSQxcBUWFC+3XXZv7IectGEGzgIOghASQiusmPWbg==}
+  '@3router/darwin-arm64@0.2.4':
+    resolution: {integrity: sha512-Prx7QmrDbGlYktIUubj8L3U0PGf/ITP8jPfV7H/Ljdw1ndffeKVjW9Gow+pE0iKTBk3dYyBwTwRkj28kB1Yp2g==}
     cpu: [arm64]
     os: [darwin]
 
-  '@3router/darwin-x64@0.2.3':
-    resolution: {integrity: sha512-uLNMi1AFRZZBXKKMJOFYQZiI/38bdfuyPL2tdknqmmkS1M389oj1W9t0o8zJEomyA5H1J44wnyeF6/A9XkvjGg==}
+  '@3router/darwin-x64@0.2.4':
+    resolution: {integrity: sha512-xZVlgWolXvQFvKHePkyEFZHqHIVGakHRAeDxBvRYwWQBDKNpagf9q4RbszgHsSoI4ojlpmdTvzKixTsNewUFTA==}
     cpu: [x64]
     os: [darwin]
 
-  '@3router/linux-arm64@0.2.3':
-    resolution: {integrity: sha512-pTwDzNmKYEn+kgo2BYTKEExfdmf2Ycx3yw/Q2ANkFZiVxQ0CDGvMDAQCoeWlOO1R6PjIVjTuXkoCd5ak0lIAUA==}
+  '@3router/linux-arm64@0.2.4':
+    resolution: {integrity: sha512-eQ+IpFynEAPPYE6/mjP5lLACHjh2afUOzowrJH2cVELeDVPYccKqi6Py0zTMicC4fWOGBQImbtOURKaWnLhKuw==}
     cpu: [arm64]
     os: [linux]
 
-  '@3router/linux-x64@0.2.3':
-    resolution: {integrity: sha512-f3gTe7udh5/ZeKqZ4z3H4Ln3IQG/AQ+M5Uz5skF7ZCY7M0Vq1BTZ2c/7F7dcZJUG11FDMwhSy5biC9DOrt8Hrg==}
+  '@3router/linux-x64@0.2.4':
+    resolution: {integrity: sha512-MwXPR0DCt7wcNjB8mpoS1qzHu15tW9eSG6ErSoBqJcUvdX97H5eQd2KAOqH/Xx2eHlfjUgAlIH3xUbIgLsrCqw==}
     cpu: [x64]
     os: [linux]
 
-  '@3router/win32-x64@0.2.3':
-    resolution: {integrity: sha512-saG0H02hsh/JsDM8BQTiLIWT0KZUbyh7jjmfyg9cJzTsd3EI4AmZBuN+uYMBBqZ8vB0+zNpzg6CSEZnjQgUB5Q==}
+  '@3router/win32-x64@0.2.4':
+    resolution: {integrity: sha512-NSkLObGJBlZDC0G30w1heuvOtx1gy1qf8+HnSRvpzcWl5BNW2LfiqxLMb32mPCSq609tOgdg8FyLmgCcL6r3yQ==}
     cpu: [x64]
     os: [win32]
 
@@ -365,19 +365,19 @@ packages:
 
 snapshots:
 
-  '@3router/darwin-arm64@0.2.3':
+  '@3router/darwin-arm64@0.2.4':
     optional: true
 
-  '@3router/darwin-x64@0.2.3':
+  '@3router/darwin-x64@0.2.4':
     optional: true
 
-  '@3router/linux-arm64@0.2.3':
+  '@3router/linux-arm64@0.2.4':
     optional: true
 
-  '@3router/linux-x64@0.2.3':
+  '@3router/linux-x64@0.2.4':
     optional: true
 
-  '@3router/win32-x64@0.2.3':
+  '@3router/win32-x64@0.2.4':
     optional: true
 
   '@oxfmt/binding-android-arm-eabi@0.53.0':
