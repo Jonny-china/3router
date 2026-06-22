@@ -17,6 +17,7 @@ description: 发布 3router 新版本到 npm + GitHub Release 的完整流程，
 - 子包缺 `repository` → npm OIDC provenance E422（0.2.3 首次暴露）
 - publish-main 回写 main non-fast-forward（0.2.3 修复）
 - 编译先于根 version bump → 二进制内联旧版本号，`npx 3router` 报旧版本（0.2.3 暴露）
+- CI 发版回写 package.json 但不同步 lockfile → 每次发版后 lockfile 落后，下次预检 frozen 失败（0.2.4 重现，坑 1 的结构性根因）
 
 本 skill 把预检清单和坑库固化下来。**发布前务必读完 `references/known-pitfalls.md`**——里面有每个坑的根因、为何本地没暴露、修复方式，以及本地预演的根本盲区。
 
@@ -47,6 +48,7 @@ pnpm typecheck                                        # prepublishOnly 调用
 
 已知坑专项核对（详见 `references/known-pitfalls.md`）：
 - [ ] 若改过 package.json 依赖字段，已 `pnpm install --lockfile-only` 同步 lockfile，且上面 `--frozen-lockfile` 通过
+- [ ] 每次发版前 `pnpm install --lockfile-only` 同步 lockfile 并提交（坑 5：CI 发版回写 package.json 但不回写 lockfile，结构性落后）
 - [ ] 5 个子包 `packages/*/package.json` 都有 `repository` 字段，url = `git+https://github.com/Jonny-china/3router.git`
 - [ ] release.yml publish-main 回写步骤含 `git pull --rebase origin main`（已修，确认未回退即可）
 - [ ] release.yml build job「编译二进制」前有「写主包版本号」步骤（坑 4，防 `--compile` 二进制内联旧版本号）

@@ -78,6 +78,20 @@ expected to match "https://github.com/Jonny-china/3router" from provenance
 
 **历史**：0.2.3 首次暴露——`@3router/darwin-arm64@0.2.3` 的二进制 strings 内联 6×`0.2.2`、0×`0.2.3`，而包元数据是 0.2.3。`npx 3router status` 恒报 v0.2.2（重装无效，二进制已定型）。
 
+## 坑 5：CI 发版回写 package.json 但不同步 lockfile（坑 1 的结构性根因）
+
+**症状**：每次发版后，main 上 `package.json` 的 `version` + `optionalDependencies` 已 bump 到新版本，但 `pnpm-lock.yaml` 仍记旧版本。下次发版前预检 `pnpm install --frozen-lockfile` 失败：`ERR_PNPM_OUTDATED_LOCKFILE ... @3router/* (lockfile: <旧>, manifest: <新>)`。
+
+**根因**：release.yml build/publish job 用 `--frozen-lockfile`（严格匹配，禁止改 lockfile），CI 内 bump package.json version + optionalDependencies 后**不会**重新生成 lockfile。publish-main 把 bump 后的 package.json 回写 main，但 lockfile 没跟着回写。于是每次发版后 lockfile 落后一个版本——这是坑 1 每次发版必然重现的**结构性根因**（坑 1 是手动改依赖后疏忽，坑 5 是 CI 流程必然）。
+
+**为何本地没暴露**：本地预演时 lockfile 与当前 package.json 已由开发者 `pnpm install` 同步过；CI 的「bump package.json → frozen install（不改 lockfile）→ 回写 package.json 而非 lockfile」时序本地不发生。
+
+**修复（根本，待实施）**：release.yml 在 bump package.json 之后加 `pnpm install --lockfile-only` 重新生成 lockfile，并把 lockfile 纳入 publish-main 回写。或 publish-main 回写步骤连 lockfile 一起 commit。彻底修前靠预检同步兜底（见下）。
+
+**预检（兜底，当前必做）**：每次发版前 `pnpm install --lockfile-only` 同步 lockfile 并提交，再 `pnpm install --frozen-lockfile --no-optional` 验证通过。
+
+**历史**：0.2.4 发版预检重现——lockfile `@3router/*` 0.2.2 vs manifest 0.2.3，手动 `pnpm install --lockfile-only` 同步后才过。坑 1 的 0.2.2/0.2.3 记录实为同一结构性问题的多次表现。
+
 ## 本地预演盲区（根本性认识）
 
 本地能验证的：依赖安装、前端构建、二进制编译、typecheck。
