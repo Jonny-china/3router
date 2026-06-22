@@ -81,16 +81,17 @@ WantedBy=default.target
 /**
  * Check if a TCP port is currently in use.
  */
-export function isPortInUse(port: number): Promise<boolean> {
+export function isPortInUse(port: number, host: string = "127.0.0.1"): Promise<boolean> {
   return new Promise((resolve) => {
     const server = createServer();
     server.once("error", () => resolve(true));
     server.once("listening", () => {
       server.close(() => resolve(false));
     });
-    // 显式 IPv4：与 Bun.serve 的 hostname "0.0.0.0" 对齐。默认 listen(port) 绑 IPv6 :: (dual-stack)，
-    // 与 IPv4 监听者不冲突会误判端口空闲，导致 verifyStartup 的 waitForPort 永远等不到 true 而超时。
-    server.listen(port, "0.0.0.0");
+    // 探测地址须与 daemon 实际监听地址（server.ts resolveHost）对齐：daemon 默认 127.0.0.1（IPv4 specific）。
+    // 若用 0.0.0.0 wildcard 探测，macOS SO_REUSEADDR 下不与 specific bind 冲突会误判端口空闲，
+    // 致 verifyStartup 的 waitForPort 永远等不到 true 而假超时（进程实际已健康 LISTEN）。
+    server.listen(port, host);
   });
 }
 
@@ -98,14 +99,14 @@ export function isPortInUse(port: number): Promise<boolean> {
  * Poll a port every 500ms until it becomes available.
  * Rejects if the port is not available within the timeout.
  */
-export function waitForPort(port: number, timeoutMs: number): Promise<void> {
+export function waitForPort(port: number, timeoutMs: number, host: string = "127.0.0.1"): Promise<void> {
   const maxAttempts = Math.ceil(timeoutMs / 500);
   let attempts = 0;
 
   return new Promise((resolve, reject) => {
     function check() {
       attempts++;
-      isPortInUse(port).then((inUse) => {
+      isPortInUse(port, host).then((inUse) => {
         if (inUse) {
           resolve();
         } else if (attempts >= maxAttempts) {

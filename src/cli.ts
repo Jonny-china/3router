@@ -10,7 +10,7 @@ import { readConfig, initConfig } from "./config";
 import { logger } from "./logger";
 import { getLogsDir, getConfigPath } from "./paths";
 import { buildRuntimeCommand, type RuntimeInfo } from "./runtime";
-import { startServer } from "./server";
+import { resolveHost, startServer } from "./server";
 import {
   LAUNCH_LABEL,
   SYSTEMD_UNIT_NAME,
@@ -148,7 +148,7 @@ function commandStart(): void {
     // Port pre-check (spec requirement: check port before starting)
     try {
       const config = readConfig();
-      const portBusy = await isPortInUse(config.port);
+      const portBusy = await isPortInUse(config.port, resolveHost(config));
       if (portBusy) {
         logger.error(`错误: 端口 ${config.port} 已被占用，请释放端口后重试`);
         process.exit(1);
@@ -282,16 +282,18 @@ function startService(): void {
 
 function verifyStartup(): void {
   let port: number;
+  let host: string;
   try {
     const config = readConfig();
     port = config.port;
+    host = resolveHost(config);
   } catch {
     logger.error("错误: 无法读取配置文件，跳过启动验证");
     return;
   }
 
   logger.info("正在验证服务启动...");
-  waitForPort(port, 15000)
+  waitForPort(port, 15000, host)
     .then(() => {
       logger.info(`✅ 3router daemon 已启动，端口: ${port}`);
     })

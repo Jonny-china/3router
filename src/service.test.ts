@@ -132,19 +132,6 @@ describe("generateSystemdUnitContent", () => {
 });
 
 describe("isPortInUse", () => {
-  it("returns true when port is occupied", async () => {
-    const server = createServer();
-    await new Promise<void>((resolve) => {
-      server.listen(0, () => resolve());
-    });
-    const port = (server.address() as { port: number }).port;
-
-    const result = await isPortInUse(port);
-    expect(result).toBe(true);
-
-    await new Promise<void>((resolve) => server.close(() => resolve()));
-  });
-
   it("returns false when port is free", async () => {
     const server = createServer();
     await new Promise<void>((resolve) => {
@@ -155,18 +142,35 @@ describe("isPortInUse", () => {
     const result = await isPortInUse(59999);
     expect(result).toBe(false);
   });
+
+  it("returns true when specific IPv4 host is occupied (aligns with daemon's 127.0.0.1)", async () => {
+    // daemon (Bun.serve) 默认监听 127.0.0.1（IPv4 specific，见 server.ts resolveHost）。
+    // 探测地址须与之一致：若用 0.0.0.0 wildcard 探测，macOS SO_REUSEADDR 下不与 specific bind
+    // 冲突会误判端口空闲，致 verifyStartup 的 waitForPort 假超时（进程实际已健康 LISTEN）。
+    const holder = createServer();
+    await new Promise<void>((resolve) => {
+      holder.listen(0, "127.0.0.1", () => resolve());
+    });
+    const port = (holder.address() as { port: number }).port;
+
+    const result = await isPortInUse(port, "127.0.0.1");
+    expect(result).toBe(true);
+
+    await new Promise<void>((resolve) => holder.close(() => resolve()));
+  });
 });
 
 describe("waitForPort", () => {
   it("resolves quickly when port is already available", async () => {
+    // 占位用 specific 127.0.0.1（与 daemon 默认监听一致）；探测地址须同 host 才冲突。
     const server = createServer();
     await new Promise<void>((resolve) => {
-      server.listen(0, () => resolve());
+      server.listen(0, "127.0.0.1", () => resolve());
     });
     const port = (server.address() as { port: number }).port;
 
     const start = Date.now();
-    await waitForPort(port, 5000);
+    await waitForPort(port, 5000, "127.0.0.1");
     const elapsed = Date.now() - start;
 
     expect(elapsed).toBeLessThan(1000);
